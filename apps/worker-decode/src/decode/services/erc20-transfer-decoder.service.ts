@@ -5,6 +5,7 @@ import { LogEntity } from '@app/db/entities/log.entity';
 import { TokenTransferEntity } from '@app/db/entities/token-transfer.entity';
 import { ERC20_TRANSFER_TOPIC } from '@app/abi';
 import { topicToAddress, MetricsService } from '@app/common';
+import { TokenMetadataService } from './token-metadata.service';
 
 @Injectable()
 export class Erc20TransferDecoderService {
@@ -18,6 +19,8 @@ export class Erc20TransferDecoderService {
     private readonly transferRepo: Repository<TokenTransferEntity>,
 
     private readonly metrics: MetricsService,
+
+    private readonly tokenMetadata: TokenMetadataService,
   ) {}
 
   async decodeBlock(blockNumber: number): Promise<number> {
@@ -68,6 +71,14 @@ export class Erc20TransferDecoderService {
         .values(inserts)
         .orIgnore()
         .execute();
+    }
+
+    // Auto-discover token metadata for new token addresses
+    if (inserts.length > 0) {
+      const tokenAddresses = [...new Set(inserts.map((t) => t.tokenAddress!))];
+      this.tokenMetadata.ensureBatch(tokenAddresses).catch((err) => {
+        this.logger.warn(`Token metadata batch error: ${(err as Error).message}`);
+      });
     }
 
     this.metrics.increment('decode.blocks_processed');

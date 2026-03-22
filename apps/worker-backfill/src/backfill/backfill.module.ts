@@ -6,6 +6,9 @@ import { TransactionReceiptEntity } from '@app/db/entities/transaction-receipt.e
 import { LogEntity } from '@app/db/entities/log.entity';
 import { TokenTransferEntity } from '@app/db/entities/token-transfer.entity';
 import { BackfillJobEntity } from '@app/db/entities/backfill-job.entity';
+import { AddressSummaryEntity } from '@app/db/entities/address-summary.entity';
+import { TokenStatsEntity } from '@app/db/entities/token-stats.entity';
+import { SummaryService } from '@app/db/services/summary.service';
 import { BackfillJobService } from './services/backfill-job.service';
 import { BackfillRunnerService } from './services/backfill-runner.service';
 import { RangePlannerService } from './services/range-planner.service';
@@ -19,9 +22,11 @@ import { RangePlannerService } from './services/range-planner.service';
       LogEntity,
       TokenTransferEntity,
       BackfillJobEntity,
+      AddressSummaryEntity,
+      TokenStatsEntity,
     ]),
   ],
-  providers: [BackfillJobService, BackfillRunnerService, RangePlannerService],
+  providers: [BackfillJobService, BackfillRunnerService, RangePlannerService, SummaryService],
   exports: [BackfillJobService, BackfillRunnerService, RangePlannerService],
 })
 export class BackfillModule {}

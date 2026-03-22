@@ -13,6 +13,7 @@ import { normalizeAddress, normalizeHash, MetricsService } from '@app/common';
 import { withRetry } from '@app/common/utils/retry';
 import { ERC20_TRANSFER_TOPIC } from '@app/abi';
 import { topicToAddress } from '@app/common';
+import { SummaryService } from '@app/db/services/summary.service';
 
 @Injectable()
 export class BackfillRunnerService {
@@ -41,6 +42,8 @@ export class BackfillRunnerService {
     private readonly jobService: BackfillJobService,
 
     private readonly metrics: MetricsService,
+
+    private readonly summaryService: SummaryService,
   ) {}
 
   async processNextJob(): Promise<boolean> {
@@ -85,6 +88,10 @@ export class BackfillRunnerService {
       for (let blockNumber = start; blockNumber <= end; blockNumber++) {
         await this.syncFullBlock(blockNumber);
       }
+
+      // Update derived read models for this batch
+      await this.summaryService.updateAddressSummariesForRange(start, end);
+      await this.summaryService.updateTokenStatsForRange(start, end);
 
       await this.jobService.updateProgress(job.id, end);
 

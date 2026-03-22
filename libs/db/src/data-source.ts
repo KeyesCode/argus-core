@@ -8,6 +8,8 @@ import { TokenTransferEntity } from './entities/token-transfer.entity';
 import { SyncCheckpointEntity } from './entities/sync-checkpoint.entity';
 import { BackfillJobEntity } from './entities/backfill-job.entity';
 import { ReorgEventEntity } from './entities/reorg-event.entity';
+import { AddressSummaryEntity } from './entities/address-summary.entity';
+import { TokenStatsEntity } from './entities/token-stats.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -26,6 +28,8 @@ export default new DataSource({
     SyncCheckpointEntity,
     BackfillJobEntity,
     ReorgEventEntity,
+    AddressSummaryEntity,
+    TokenStatsEntity,
   ],
   migrations: ['libs/db/src/migrations/*.ts'],
 });

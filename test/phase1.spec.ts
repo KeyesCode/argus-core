@@ -16,6 +16,8 @@ import { ReorgDetectionService } from '../apps/worker-ingest/src/ingest/services
 import { Erc20TransferDecoderService } from '../apps/worker-decode/src/decode/services/erc20-transfer-decoder.service';
 import { BackfillJobService } from '../apps/worker-backfill/src/backfill/services/backfill-job.service';
 import { BackfillRunnerService } from '../apps/worker-backfill/src/backfill/services/backfill-runner.service';
+import { TokenMetadataService } from '../apps/worker-decode/src/decode/services/token-metadata.service';
+import { SummaryService } from '../libs/db/src/services/summary.service';
 import { BlocksController } from '../apps/api/src/blocks/blocks.controller';
 import { BlocksService } from '../apps/api/src/blocks/blocks.service';
 import { TransactionsController } from '../apps/api/src/transactions/transactions.controller';
@@ -74,6 +76,8 @@ describe('Phase 1: End-to-end system validation', () => {
         Erc20TransferDecoderService,
         BackfillJobService,
         BackfillRunnerService,
+        TokenMetadataService,
+        SummaryService,
         // API services
         BlocksService,
         TransactionsService,

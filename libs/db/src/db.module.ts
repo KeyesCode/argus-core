@@ -9,6 +9,8 @@ import { TokenTransferEntity } from './entities/token-transfer.entity';
 import { SyncCheckpointEntity } from './entities/sync-checkpoint.entity';
 import { BackfillJobEntity } from './entities/backfill-job.entity';
 import { ReorgEventEntity } from './entities/reorg-event.entity';
+import { AddressSummaryEntity } from './entities/address-summary.entity';
+import { TokenStatsEntity } from './entities/token-stats.entity';
 
 const entities = [
   BlockEntity,
@@ -20,6 +22,8 @@ const entities = [
   SyncCheckpointEntity,
   BackfillJobEntity,
   ReorgEventEntity,
+  AddressSummaryEntity,
+  TokenStatsEntity,
 ];
 
 @Global()

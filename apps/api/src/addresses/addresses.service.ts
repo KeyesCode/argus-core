@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TransactionEntity } from '@app/db/entities/transaction.entity';
 import { TokenTransferEntity } from '@app/db/entities/token-transfer.entity';
+import { AddressSummaryEntity } from '@app/db/entities/address-summary.entity';
 import { PaginatedResponse } from '../common/pagination';
 
 @Injectable()
@@ -13,12 +14,17 @@ export class AddressesService {
 
     @InjectRepository(TokenTransferEntity)
     private readonly transferRepo: Repository<TokenTransferEntity>,
+
+    @InjectRepository(AddressSummaryEntity)
+    private readonly summaryRepo: Repository<AddressSummaryEntity>,
   ) {}
 
   async getOverview(address: string, take: number) {
     const normalized = address.toLowerCase();
 
-    const [transactions, tokenTransfers, txCount] = await Promise.all([
+    // Try summary table first (O(1) lookup vs full count scan)
+    const [summary, transactions, tokenTransfers] = await Promise.all([
+      this.summaryRepo.findOne({ where: { address: normalized } }),
       this.txRepo.find({
         where: [{ fromAddress: normalized }, { toAddress: normalized }],
         order: { blockNumber: 'DESC', transactionIndex: 'DESC' },
@@ -29,14 +35,20 @@ export class AddressesService {
         order: { blockNumber: 'DESC', logIndex: 'DESC' },
         take,
       }),
-      this.txRepo.count({
-        where: [{ fromAddress: normalized }, { toAddress: normalized }],
-      }),
     ]);
+
+    // Fall back to count query only if summary doesn't exist yet
+    const txCount = summary?.transactionCount
+      ?? await this.txRepo.count({
+        where: [{ fromAddress: normalized }, { toAddress: normalized }],
+      });
 
     return {
       address: normalized,
       transactionCount: txCount,
+      transferCount: summary?.transferCount ?? 0,
+      firstSeenBlock: summary?.firstSeenBlock ?? null,
+      lastSeenBlock: summary?.lastSeenBlock ?? null,
       recentTransactions: transactions,
       recentTokenTransfers: tokenTransfers,
     };

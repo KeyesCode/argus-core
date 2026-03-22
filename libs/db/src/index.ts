@@ -8,3 +8,5 @@ export * from './entities/token-transfer.entity';
 export * from './entities/sync-checkpoint.entity';
 export * from './entities/backfill-job.entity';
 export * from './entities/reorg-event.entity';
+export * from './entities/address-summary.entity';
+export * from './entities/token-stats.entity';

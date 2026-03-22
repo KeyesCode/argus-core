@@ -11,6 +11,8 @@ import { TokenTransferEntity } from '@app/db/entities/token-transfer.entity';
 import { SyncCheckpointEntity } from '@app/db/entities/sync-checkpoint.entity';
 import { BackfillJobEntity } from '@app/db/entities/backfill-job.entity';
 import { ReorgEventEntity } from '@app/db/entities/reorg-event.entity';
+import { AddressSummaryEntity } from '@app/db/entities/address-summary.entity';
+import { TokenStatsEntity } from '@app/db/entities/token-stats.entity';
 import { CHAIN_PROVIDER } from '@app/chain-provider/chain-provider.interface';
 import { QUEUE_NAMES } from '@app/queue/queue.constants';
 import { MetricsService } from '@app/common/metrics/metrics.service';
@@ -26,6 +28,8 @@ export const ALL_ENTITIES = [
   SyncCheckpointEntity,
   BackfillJobEntity,
   ReorgEventEntity,
+  AddressSummaryEntity,
+  TokenStatsEntity,
 ];
 
 /**
@@ -99,6 +103,8 @@ export async function clearDatabase(module: TestingModule): Promise<void> {
   await dataSource.query('DELETE FROM "sync_checkpoints"');
   await dataSource.query('DELETE FROM "backfill_jobs"');
   await dataSource.query('DELETE FROM "reorg_events"');
+  await dataSource.query('DELETE FROM "address_summaries"');
+  await dataSource.query('DELETE FROM "token_stats"');
 }
 
 /**
