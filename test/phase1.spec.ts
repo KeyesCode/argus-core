@@ -18,6 +18,7 @@ import { BackfillJobService } from '../apps/worker-backfill/src/backfill/service
 import { BackfillRunnerService } from '../apps/worker-backfill/src/backfill/services/backfill-runner.service';
 import { TokenMetadataService } from '../apps/worker-decode/src/decode/services/token-metadata.service';
 import { SummaryService } from '../libs/db/src/services/summary.service';
+import { PartitionManagerService } from '../libs/db/src/services/partition-manager.service';
 import { BlocksController } from '../apps/api/src/blocks/blocks.controller';
 import { BlocksService } from '../apps/api/src/blocks/blocks.service';
 import { TransactionsController } from '../apps/api/src/transactions/transactions.controller';
@@ -78,6 +79,7 @@ describe('Phase 1: End-to-end system validation', () => {
         BackfillRunnerService,
         TokenMetadataService,
         SummaryService,
+        PartitionManagerService,
         // API services
         BlocksService,
         TransactionsService,

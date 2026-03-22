@@ -14,6 +14,7 @@ import { withRetry } from '@app/common/utils/retry';
 import { ERC20_TRANSFER_TOPIC } from '@app/abi';
 import { topicToAddress } from '@app/common';
 import { SummaryService } from '@app/db/services/summary.service';
+import { PartitionManagerService } from '@app/db/services/partition-manager.service';
 
 @Injectable()
 export class BackfillRunnerService {
@@ -44,6 +45,8 @@ export class BackfillRunnerService {
     private readonly metrics: MetricsService,
 
     private readonly summaryService: SummaryService,
+
+    private readonly partitionManager: PartitionManagerService,
   ) {}
 
   async processNextJob(): Promise<boolean> {
@@ -74,6 +77,10 @@ export class BackfillRunnerService {
     this.logger.log(
       `Starting backfill job #${job.id}: ${fromBlock} -> ${toBlock} (batch=${batchSize})`,
     );
+
+    // Ensure partitions exist for the full job range
+    await this.partitionManager.ensurePartitionsForBlock(fromBlock);
+    await this.partitionManager.ensurePartitionsForBlock(toBlock);
 
     for (let start = fromBlock; start <= toBlock; start += batchSize) {
       // Check if job was paused

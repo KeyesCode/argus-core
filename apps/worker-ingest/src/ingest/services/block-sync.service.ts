@@ -9,6 +9,7 @@ import { TransactionEntity } from '@app/db/entities/transaction.entity';
 import { SyncCheckpointEntity } from '@app/db/entities/sync-checkpoint.entity';
 import { QUEUE_NAMES } from '@app/queue';
 import { normalizeAddress, normalizeHash, MetricsService } from '@app/common';
+import { PartitionManagerService } from '@app/db/services/partition-manager.service';
 import { ReorgDetectionService } from './reorg-detection.service';
 
 @Injectable()
@@ -35,17 +36,23 @@ export class BlockSyncService {
     private readonly metrics: MetricsService,
 
     private readonly reorgDetection: ReorgDetectionService,
+
+    private readonly partitionManager: PartitionManagerService,
   ) {}
 
   async syncNextBatch(batchSize?: number): Promise<number> {
     const size = batchSize ?? Number(process.env.INGEST_BATCH_SIZE ?? 10);
     const checkpoint = await this.getOrCreateCheckpoint();
     const latestBlock = await this.chainProvider.getLatestBlockNumber();
+
     const confirmations = Number(process.env.INGEST_CONFIRMATIONS ?? 6);
     const targetBlock = latestBlock - confirmations;
 
     const nextBlock = Number(checkpoint.lastSyncedBlock) + 1;
     const endBlock = Math.min(nextBlock + size - 1, targetBlock);
+
+    // Ensure partitions exist for the block range we're about to sync
+    await this.partitionManager.ensurePartitionsForBlock(nextBlock);
 
     // Track chain head and lag
     this.metrics.setGauge('ingest.chain_head', latestBlock);

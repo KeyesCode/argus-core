@@ -11,6 +11,7 @@ import { BlockSyncService } from './services/block-sync.service';
 import { ReceiptSyncService } from './services/receipt-sync.service';
 import { CheckpointService } from './services/checkpoint.service';
 import { ReorgDetectionService } from './services/reorg-detection.service';
+import { PartitionManagerService } from '@app/db/services/partition-manager.service';
 import { BlockProcessor } from './processors/block-processor';
 
 @Module({
@@ -30,6 +31,7 @@ import { BlockProcessor } from './processors/block-processor';
     ReceiptSyncService,
     CheckpointService,
     ReorgDetectionService,
+    PartitionManagerService,
     BlockProcessor,
   ],
   exports: [BlockSyncService, ReceiptSyncService, CheckpointService, ReorgDetectionService],
