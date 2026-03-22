@@ -21,6 +21,7 @@
     "start:prod:worker-backfill": "node dist/apps/worker-backfill/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
+    "test:integration": "jest --testPathPattern=test/ --runInBand --forceExit",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
@@ -70,7 +71,8 @@
     "collectCoverageFrom": ["**/*.(t|j)s"],
     "coverageDirectory": "./coverage",
     "testEnvironment": "node",
-    "roots": ["<rootDir>/apps/", "<rootDir>/libs/"],
+    "testTimeout": 30000,
+    "roots": ["<rootDir>/apps/", "<rootDir>/libs/", "<rootDir>/test/"],
     "moduleNameMapper": {
       "^@app/chain-provider(|/.*)$": "<rootDir>/libs/chain-provider/src/$1",
       "^@app/db(|/.*)$": "<rootDir>/libs/db/src/$1",
