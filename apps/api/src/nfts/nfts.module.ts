@@ -4,6 +4,8 @@ import { NftTransferEntity } from '@app/db/entities/nft-transfer.entity';
 import { Erc721OwnershipEntity } from '@app/db/entities/erc721-ownership.entity';
 import { Erc1155BalanceEntity } from '@app/db/entities/erc1155-balance.entity';
 import { NftTokenMetadataEntity } from '@app/db/entities/nft-token-metadata.entity';
+import { AddressNftHoldingEntity } from '@app/db/entities/address-nft-holding.entity';
+import { NftContractStatsEntity } from '@app/db/entities/nft-contract-stats.entity';
 import { NftsController } from './nfts.controller';
 import { NftsService } from './nfts.service';
 
@@ -14,6 +16,8 @@ import { NftsService } from './nfts.service';
       Erc721OwnershipEntity,
       Erc1155BalanceEntity,
       NftTokenMetadataEntity,
+      AddressNftHoldingEntity,
+      NftContractStatsEntity,
     ]),
   ],
   controllers: [NftsController],

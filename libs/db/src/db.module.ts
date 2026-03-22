@@ -15,6 +15,9 @@ import { NftTransferEntity } from './entities/nft-transfer.entity';
 import { Erc721OwnershipEntity } from './entities/erc721-ownership.entity';
 import { Erc1155BalanceEntity } from './entities/erc1155-balance.entity';
 import { NftTokenMetadataEntity } from './entities/nft-token-metadata.entity';
+import { AddressNftHoldingEntity } from './entities/address-nft-holding.entity';
+import { NftContractStatsEntity } from './entities/nft-contract-stats.entity';
+import { ContractStandardEntity } from './entities/contract-standard.entity';
 
 const entities = [
   BlockEntity,
@@ -32,6 +35,9 @@ const entities = [
   Erc721OwnershipEntity,
   Erc1155BalanceEntity,
   NftTokenMetadataEntity,
+  AddressNftHoldingEntity,
+  NftContractStatsEntity,
+  ContractStandardEntity,
 ];
 
 @Global()

@@ -12,6 +12,8 @@ import { ReorgEventEntity } from '@app/db/entities/reorg-event.entity';
 import { NftTransferEntity } from '@app/db/entities/nft-transfer.entity';
 import { Erc721OwnershipEntity } from '@app/db/entities/erc721-ownership.entity';
 import { Erc1155BalanceEntity } from '@app/db/entities/erc1155-balance.entity';
+import { AddressNftHoldingEntity } from '@app/db/entities/address-nft-holding.entity';
+import { NftContractStatsEntity } from '@app/db/entities/nft-contract-stats.entity';
 import { BlockSyncService } from '../apps/worker-ingest/src/ingest/services/block-sync.service';
 import { ReceiptSyncService } from '../apps/worker-ingest/src/ingest/services/receipt-sync.service';
 import { CheckpointService } from '../apps/worker-ingest/src/ingest/services/checkpoint.service';
@@ -23,6 +25,7 @@ import { TokenMetadataService } from '../apps/worker-decode/src/decode/services/
 import { NftTransferDecoderService } from '../apps/worker-decode/src/decode/services/nft-transfer-decoder.service';
 import { ContractStandardDetectorService } from '../apps/worker-decode/src/decode/services/contract-standard-detector.service';
 import { NftMetadataService } from '../apps/worker-decode/src/decode/services/nft-metadata.service';
+import { NftReadModelService } from '../libs/db/src/services/nft-read-model.service';
 import { SummaryService } from '../libs/db/src/services/summary.service';
 import { PartitionManagerService } from '../libs/db/src/services/partition-manager.service';
 import { BlocksController } from '../apps/api/src/blocks/blocks.controller';
@@ -56,6 +59,8 @@ describe('Phase 1: End-to-end system validation', () => {
   let nftTransferRepo: Repository<NftTransferEntity>;
   let erc721Repo: Repository<Erc721OwnershipEntity>;
   let erc1155Repo: Repository<Erc1155BalanceEntity>;
+  let holdingRepo: Repository<AddressNftHoldingEntity>;
+  let statsRepo: Repository<NftContractStatsEntity>;
 
   let blockSyncService: BlockSyncService;
   let receiptSyncService: ReceiptSyncService;
@@ -92,6 +97,7 @@ describe('Phase 1: End-to-end system validation', () => {
         NftTransferDecoderService,
         ContractStandardDetectorService,
         NftMetadataService,
+        NftReadModelService,
         SummaryService,
         PartitionManagerService,
         // API services
@@ -126,6 +132,8 @@ describe('Phase 1: End-to-end system validation', () => {
     nftTransferRepo = module.get(getRepositoryToken(NftTransferEntity));
     erc721Repo = module.get(getRepositoryToken(Erc721OwnershipEntity));
     erc1155Repo = module.get(getRepositoryToken(Erc1155BalanceEntity));
+    holdingRepo = module.get(getRepositoryToken(AddressNftHoldingEntity));
+    statsRepo = module.get(getRepositoryToken(NftContractStatsEntity));
 
     blockSyncService = module.get(BlockSyncService);
     receiptSyncService = module.get(ReceiptSyncService);
@@ -1072,6 +1080,67 @@ describe('Phase 1: End-to-end system validation', () => {
       // No overlap between ERC-721 and ERC-1155 contract addresses
       for (const addr of erc1155Addresses) {
         expect(erc721Addresses.has(addr)).toBe(false);
+      }
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // 12. NFT read model layer (holdings + stats)
+  // ────────────────────────────────────────────────────────────────
+  describe('NFT read model layer', () => {
+    beforeEach(async () => {
+      await blockSyncService.syncNextBatch(15);
+      for (let bn = 1; bn <= 15; bn++) {
+        await receiptSyncService.syncReceiptsForBlock(bn);
+        await nftDecoder.decodeBlock(bn);
+      }
+    });
+
+    it('should populate address_nft_holdings for ERC-721 transfers', async () => {
+      const holdings = await holdingRepo.find({
+        where: { tokenType: 'ERC721' },
+      });
+      expect(holdings.length).toBeGreaterThan(0);
+
+      for (const h of holdings) {
+        expect(h.quantity).toBe('1');
+        expect(h.address).toMatch(/^0x[0-9a-f]{40}$/);
+      }
+    });
+
+    it('should populate address_nft_holdings for ERC-1155 transfers', async () => {
+      const holdings = await holdingRepo.find({
+        where: { tokenType: 'ERC1155' },
+      });
+      expect(holdings.length).toBeGreaterThan(0);
+
+      for (const h of holdings) {
+        expect(BigInt(h.quantity)).toBeGreaterThan(0n);
+      }
+    });
+
+    it('should populate nft_contract_stats', async () => {
+      const stats = await statsRepo.find();
+      expect(stats.length).toBeGreaterThan(0);
+
+      for (const s of stats) {
+        expect(s.totalTransfers).toBeGreaterThan(0);
+        expect(s.lastActivityBlock).not.toBeNull();
+      }
+    });
+
+    it('should have correct holding for each ERC-721 ownership', async () => {
+      const ownership = await erc721Repo.find();
+      for (const own of ownership) {
+        const holding = await holdingRepo.findOne({
+          where: {
+            address: own.ownerAddress,
+            tokenAddress: own.tokenAddress,
+            tokenId: own.tokenId,
+          },
+        });
+        expect(holding).not.toBeNull();
+        expect(holding!.quantity).toBe('1');
       }
     });
   });

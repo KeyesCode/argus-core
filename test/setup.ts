@@ -17,6 +17,9 @@ import { NftTransferEntity } from '@app/db/entities/nft-transfer.entity';
 import { Erc721OwnershipEntity } from '@app/db/entities/erc721-ownership.entity';
 import { Erc1155BalanceEntity } from '@app/db/entities/erc1155-balance.entity';
 import { NftTokenMetadataEntity } from '@app/db/entities/nft-token-metadata.entity';
+import { AddressNftHoldingEntity } from '@app/db/entities/address-nft-holding.entity';
+import { NftContractStatsEntity } from '@app/db/entities/nft-contract-stats.entity';
+import { ContractStandardEntity } from '@app/db/entities/contract-standard.entity';
 import { CHAIN_PROVIDER } from '@app/chain-provider/chain-provider.interface';
 import { QUEUE_NAMES } from '@app/queue/queue.constants';
 import { MetricsService } from '@app/common/metrics/metrics.service';
@@ -38,6 +41,9 @@ export const ALL_ENTITIES = [
   Erc721OwnershipEntity,
   Erc1155BalanceEntity,
   NftTokenMetadataEntity,
+  AddressNftHoldingEntity,
+  NftContractStatsEntity,
+  ContractStandardEntity,
 ];
 
 /**
@@ -72,6 +78,7 @@ export async function createTestModule(
       BullModule.registerQueue(
         { name: QUEUE_NAMES.DECODE_LOGS },
         { name: QUEUE_NAMES.BACKFILL_RANGE },
+        { name: QUEUE_NAMES.NFT_METADATA },
       ),
     ],
     providers: [
@@ -85,12 +92,16 @@ export async function createTestModule(
     controllers,
   });
 
+  const metadataQueue = new MockQueue();
+
   // Override Bull queues with mocks (Bull requires Redis, tests should not)
   const module = await moduleBuilder
     .overrideProvider(`BullQueue_${QUEUE_NAMES.DECODE_LOGS}`)
     .useValue(decodeQueue)
     .overrideProvider(`BullQueue_${QUEUE_NAMES.BACKFILL_RANGE}`)
     .useValue(backfillQueue)
+    .overrideProvider(`BullQueue_${QUEUE_NAMES.NFT_METADATA}`)
+    .useValue(metadataQueue)
     .compile();
 
   return { module, chainProvider, decodeQueue };
@@ -117,6 +128,9 @@ export async function clearDatabase(module: TestingModule): Promise<void> {
   await dataSource.query('DELETE FROM "erc721_ownership"');
   await dataSource.query('DELETE FROM "erc1155_balances"');
   await dataSource.query('DELETE FROM "nft_transfers"');
+  await dataSource.query('DELETE FROM "address_nft_holdings"');
+  await dataSource.query('DELETE FROM "nft_contract_stats"');
+  await dataSource.query('DELETE FROM "contract_standards"');
 }
 
 /**

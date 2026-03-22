@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract, JsonRpcProvider } from 'ethers';
-import { TokenContractEntity } from '@app/db/entities/token-contract.entity';
+import { ContractStandardEntity } from '@app/db/entities/contract-standard.entity';
 import { ERC165_ABI } from '@app/abi';
 import { ERC721_INTERFACE_ID, ERC1155_INTERFACE_ID } from '@app/abi';
 
@@ -16,8 +16,8 @@ export class ContractStandardDetectorService {
   private readonly pending = new Set<string>();
 
   constructor(
-    @InjectRepository(TokenContractEntity)
-    private readonly tokenRepo: Repository<TokenContractEntity>,
+    @InjectRepository(ContractStandardEntity)
+    private readonly standardRepo: Repository<ContractStandardEntity>,
   ) {
     const rpcUrl = process.env.CHAIN_RPC_URL;
     this.provider = rpcUrl ? new JsonRpcProvider(rpcUrl) : null;
@@ -25,50 +25,49 @@ export class ContractStandardDetectorService {
 
   /**
    * Detect the standard of a contract address.
-   * 1. Check in-memory cache
-   * 2. Check DB (token_contracts.standard)
-   * 3. Probe ERC-165 supportsInterface
-   * 4. Fall back to UNKNOWN
+   * Precedence: 1) in-memory cache, 2) DB persistence, 3) ERC-165 probe, 4) UNKNOWN
    */
   async detectStandard(address: string): Promise<ContractStandard> {
     const normalized = address.toLowerCase();
 
-    // In-memory cache
     const cached = this.cache.get(normalized);
     if (cached) return cached;
 
-    // DB cache
-    const existing = await this.tokenRepo.findOne({
+    // DB-backed persistence
+    const persisted = await this.standardRepo.findOne({
       where: { address: normalized },
     });
-    if (existing && existing.standard !== 'ERC20') {
-      // Only trust non-default values (ERC20 is the default, might be wrong)
-      this.cache.set(normalized, existing.standard as ContractStandard);
-      return existing.standard as ContractStandard;
+    if (persisted) {
+      const std = persisted.standard as ContractStandard;
+      this.cache.set(normalized, std);
+      return std;
     }
 
-    // Probe via ERC-165 (don't block if already probing)
+    // Probe via ERC-165
     if (this.pending.has(normalized) || !this.provider) {
       return 'UNKNOWN';
     }
 
     this.pending.add(normalized);
     try {
-      const standard = await this.probeErc165(normalized);
-      this.cache.set(normalized, standard);
+      const result = await this.probeErc165(normalized);
+      this.cache.set(normalized, result.standard);
 
-      // Update DB if we found a definitive answer
-      if (standard !== 'UNKNOWN') {
-        await this.tokenRepo.upsert(
-          {
-            address: normalized,
-            standard,
-          },
-          ['address'],
-        );
-      }
+      // Persist to DB
+      await this.standardRepo.upsert(
+        {
+          address: normalized,
+          standard: result.standard,
+          detectionMethod: result.method,
+          supportsErc165: result.supportsErc165,
+          supportsErc721: result.supportsErc721,
+          supportsErc1155: result.supportsErc1155,
+          updatedAt: new Date(),
+        },
+        ['address'],
+      );
 
-      return standard;
+      return result.standard;
     } catch {
       return 'UNKNOWN';
     } finally {
@@ -78,13 +77,6 @@ export class ContractStandardDetectorService {
 
   /**
    * Classify a Transfer log using topic count + contract standard.
-   * Returns 'ERC20' or 'ERC721'.
-   *
-   * For 3-topic Transfer logs (value in data): always ERC-20.
-   * For 4-topic Transfer logs (tokenId as topic3):
-   *   - Check contract standard cache/probe
-   *   - If confirmed ERC-20, treat as ERC-20 (rare non-standard case)
-   *   - Otherwise, treat as ERC-721
    */
   async classifyTransferLog(
     contractAddress: string,
@@ -93,16 +85,24 @@ export class ContractStandardDetectorService {
     if (topicCount === 3) return 'ERC20';
     if (topicCount === 4) {
       const standard = await this.detectStandard(contractAddress);
-      // If we confirmed it's ERC-20 via ERC-165, respect that
       if (standard === 'ERC20') return 'ERC20';
-      // Otherwise treat 4-topic as ERC-721 (covers ERC721 and UNKNOWN)
       return 'ERC721';
     }
-    return 'ERC20'; // shouldn't happen, but safe default
+    return 'ERC20';
   }
 
-  private async probeErc165(address: string): Promise<ContractStandard> {
-    if (!this.provider) return 'UNKNOWN';
+  private async probeErc165(
+    address: string,
+  ): Promise<{
+    standard: ContractStandard;
+    method: string;
+    supportsErc165: boolean | null;
+    supportsErc721: boolean | null;
+    supportsErc1155: boolean | null;
+  }> {
+    if (!this.provider) {
+      return { standard: 'UNKNOWN', method: 'heuristic', supportsErc165: null, supportsErc721: null, supportsErc1155: null };
+    }
 
     try {
       const contract = new Contract(address, ERC165_ABI, this.provider);
@@ -112,17 +112,24 @@ export class ContractStandardDetectorService {
         contract.supportsInterface(ERC1155_INTERFACE_ID) as Promise<boolean>,
       ]);
 
-      if (isErc721.status === 'fulfilled' && isErc721.value) return 'ERC721';
-      if (isErc1155.status === 'fulfilled' && isErc1155.value) return 'ERC1155';
+      const erc721 = isErc721.status === 'fulfilled' ? isErc721.value : null;
+      const erc1155 = isErc1155.status === 'fulfilled' ? isErc1155.value : null;
+      const erc165 = erc721 !== null || erc1155 !== null;
 
-      // ERC-165 responded but no match — likely ERC-20 or non-standard
-      if (isErc721.status === 'fulfilled' || isErc1155.status === 'fulfilled') {
-        return 'ERC20';
-      }
+      let standard: ContractStandard = 'UNKNOWN';
+      if (erc721 === true) standard = 'ERC721';
+      else if (erc1155 === true) standard = 'ERC1155';
+      else if (erc165) standard = 'ERC20';
 
-      return 'UNKNOWN';
+      return {
+        standard,
+        method: erc165 ? 'erc165' : 'heuristic',
+        supportsErc165: erc165,
+        supportsErc721: erc721,
+        supportsErc1155: erc1155,
+      };
     } catch {
-      return 'UNKNOWN';
+      return { standard: 'UNKNOWN', method: 'heuristic', supportsErc165: null, supportsErc721: null, supportsErc1155: null };
     }
   }
 }

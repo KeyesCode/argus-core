@@ -2,9 +2,9 @@ import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AddressesService } from './addresses.service';
 import { NftsService } from '../nfts/nfts.service';
-import { PaginationQueryDto, LimitQueryDto } from '../common/pagination';
+import { PaginationQueryDto, CursorQueryDto, LimitQueryDto } from '../common/pagination';
 import { AddressParamDto } from '../common/params';
-import { TransactionDto, TokenTransferDto, Erc721OwnershipDto, NftTransferDto, ApiPaginatedResponse } from '../common/dto';
+import { TransactionDto, TokenTransferDto, Erc721OwnershipDto, NftTransferDto, ApiPaginatedResponse, ApiCursorPaginatedResponse } from '../common/dto';
 import { AddressOverviewDto } from './dto/address-overview.dto';
 
 @ApiTags('Addresses')
@@ -68,16 +68,16 @@ export class AddressesController {
   }
 
   @Get(':address/nft-transfers')
-  @ApiOperation({ summary: 'Get NFT transfer history for an address' })
-  @ApiPaginatedResponse(NftTransferDto)
+  @ApiOperation({ summary: 'Get cursor-paginated NFT transfer history for an address' })
+  @ApiCursorPaginatedResponse(NftTransferDto)
   async getAddressNftTransfers(
     @Param() params: AddressParamDto,
-    @Query() query: PaginationQueryDto,
+    @Query() query: CursorQueryDto,
   ) {
     return this.nftsService.getNftTransfersByOwner(
       params.address,
       query.limit!,
-      query.offset!,
+      query.cursor,
     );
   }
 }

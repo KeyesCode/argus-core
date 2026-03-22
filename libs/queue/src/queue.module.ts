@@ -14,6 +14,7 @@ import { QUEUE_NAMES } from './queue.constants';
     BullModule.registerQueue(
       { name: QUEUE_NAMES.DECODE_LOGS },
       { name: QUEUE_NAMES.BACKFILL_RANGE },
+      { name: QUEUE_NAMES.NFT_METADATA },
     ),
   ],
   exports: [BullModule],

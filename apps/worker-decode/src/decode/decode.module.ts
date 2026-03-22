@@ -7,12 +7,17 @@ import { NftTransferEntity } from '@app/db/entities/nft-transfer.entity';
 import { Erc721OwnershipEntity } from '@app/db/entities/erc721-ownership.entity';
 import { Erc1155BalanceEntity } from '@app/db/entities/erc1155-balance.entity';
 import { NftTokenMetadataEntity } from '@app/db/entities/nft-token-metadata.entity';
+import { AddressNftHoldingEntity } from '@app/db/entities/address-nft-holding.entity';
+import { NftContractStatsEntity } from '@app/db/entities/nft-contract-stats.entity';
+import { ContractStandardEntity } from '@app/db/entities/contract-standard.entity';
+import { NftReadModelService } from '@app/db/services/nft-read-model.service';
 import { Erc20TransferDecoderService } from './services/erc20-transfer-decoder.service';
 import { NftTransferDecoderService } from './services/nft-transfer-decoder.service';
 import { ContractStandardDetectorService } from './services/contract-standard-detector.service';
 import { TokenMetadataService } from './services/token-metadata.service';
 import { NftMetadataService } from './services/nft-metadata.service';
 import { DecodeProcessor } from './processors/decode-processor';
+import { NftMetadataProcessor } from './processors/nft-metadata-processor';
 
 @Module({
   imports: [
@@ -24,6 +29,9 @@ import { DecodeProcessor } from './processors/decode-processor';
       Erc721OwnershipEntity,
       Erc1155BalanceEntity,
       NftTokenMetadataEntity,
+      AddressNftHoldingEntity,
+      NftContractStatsEntity,
+      ContractStandardEntity,
     ]),
   ],
   providers: [
@@ -32,7 +40,9 @@ import { DecodeProcessor } from './processors/decode-processor';
     ContractStandardDetectorService,
     TokenMetadataService,
     NftMetadataService,
+    NftReadModelService,
     DecodeProcessor,
+    NftMetadataProcessor,
   ],
   exports: [Erc20TransferDecoderService, NftTransferDecoderService, TokenMetadataService, NftMetadataService],
 })

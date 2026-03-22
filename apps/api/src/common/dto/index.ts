@@ -8,4 +8,4 @@ export { NftTransferDto } from './nft-transfer.dto';
 export { Erc721OwnershipDto } from './erc721-ownership.dto';
 export { Erc1155BalanceDto } from './erc1155-balance.dto';
 export { NftTokenMetadataDto } from './nft-token-metadata.dto';
-export { PaginatedDto, ApiPaginatedResponse } from './paginated.dto';
+export { PaginatedDto, CursorPaginatedDto, ApiPaginatedResponse, ApiCursorPaginatedResponse } from './paginated.dto';

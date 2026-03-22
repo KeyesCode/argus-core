@@ -15,6 +15,37 @@ export class PaginatedDto<T> {
   offset!: number;
 }
 
+export class CursorPaginatedDto<T> {
+  items!: T[];
+
+  @ApiProperty({ example: '22711829:5', nullable: true })
+  nextCursor!: string | null;
+
+  @ApiProperty({ example: 25 })
+  limit!: number;
+}
+
+export function ApiCursorPaginatedResponse(itemType: Type) {
+  return applyDecorators(
+    ApiExtraModels(CursorPaginatedDto, itemType),
+    ApiOkResponse({
+      schema: {
+        allOf: [
+          { $ref: getSchemaPath(CursorPaginatedDto) },
+          {
+            properties: {
+              items: {
+                type: 'array',
+                items: { $ref: getSchemaPath(itemType) },
+              },
+            },
+          },
+        ],
+      },
+    }),
+  );
+}
+
 export function ApiPaginatedResponse(itemType: Type) {
   return applyDecorators(
     ApiExtraModels(PaginatedDto, itemType),

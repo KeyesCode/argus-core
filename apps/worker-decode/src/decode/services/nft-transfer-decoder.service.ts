@@ -11,9 +11,12 @@ import {
   ERC1155_TRANSFER_BATCH_TOPIC,
 } from '@app/abi';
 import { AbiCoder } from 'ethers';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import { MetricsService } from '@app/common';
+import { QUEUE_NAMES } from '@app/queue';
 import { ContractStandardDetectorService } from './contract-standard-detector.service';
-import { NftMetadataService } from './nft-metadata.service';
+import { NftReadModelService } from '@app/db/services/nft-read-model.service';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -37,7 +40,10 @@ export class NftTransferDecoderService {
     private readonly dataSource: DataSource,
     private readonly metrics: MetricsService,
     private readonly standardDetector: ContractStandardDetectorService,
-    private readonly nftMetadata: NftMetadataService,
+    private readonly readModel: NftReadModelService,
+
+    @InjectQueue(QUEUE_NAMES.NFT_METADATA)
+    private readonly metadataQueue: Queue,
   ) {}
 
   async decodeBlock(blockNumber: number): Promise<number> {
@@ -153,14 +159,42 @@ export class NftTransferDecoderService {
       }
     }
 
-    // Fire-and-forget metadata discovery
+    // Update read models (holdings + contract stats)
     if (inserts.length > 0) {
-      const tokenItems = inserts.map((t) => ({
-        tokenAddress: t.tokenAddress!, tokenId: t.tokenId!, tokenType: t.tokenType!,
+      const readModelTransfers = inserts.map((t) => ({
+        tokenAddress: t.tokenAddress!,
+        tokenType: t.tokenType!,
+        fromAddress: t.fromAddress!,
+        toAddress: t.toAddress!,
+        tokenId: t.tokenId!,
+        quantity: t.quantity!,
+        blockNumber: t.blockNumber!,
       }));
-      this.nftMetadata.ensureBatch(tokenItems).catch((err) => {
-        this.logger.warn(`NFT metadata batch error: ${(err as Error).message}`);
-      });
+
+      for (const t of readModelTransfers) {
+        await this.readModel.updateHolding(t);
+      }
+      await this.readModel.updateStatsForTransfers(readModelTransfers);
+    }
+
+    // Enqueue metadata fetch jobs (non-blocking, processed by dedicated worker)
+    if (inserts.length > 0) {
+      const seen = new Set<string>();
+      for (const t of inserts) {
+        const key = `${t.tokenAddress}:${t.tokenId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        this.metadataQueue.add('fetch-metadata', {
+          tokenAddress: t.tokenAddress,
+          tokenId: t.tokenId,
+          tokenType: t.tokenType,
+        }, {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: true,
+          jobId: key, // dedup by token
+        }).catch(() => {}); // non-blocking
+      }
     }
 
     this.metrics.increment('decode.nft_transfers', inserts.length);

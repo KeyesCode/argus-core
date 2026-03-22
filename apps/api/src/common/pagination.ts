@@ -35,3 +35,34 @@ export interface PaginatedResponse<T> {
   limit: number;
   offset: number;
 }
+
+export class CursorQueryDto {
+  @ApiPropertyOptional({ default: 25, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 25;
+
+  @ApiPropertyOptional({ description: 'Cursor for next page (block_number:log_index)' })
+  @IsOptional()
+  cursor?: string;
+}
+
+export interface CursorPaginatedResponse<T> {
+  items: T[];
+  nextCursor: string | null;
+  limit: number;
+}
+
+export function parseCursor(cursor?: string): { blockNumber: string; logIndex: number } | null {
+  if (!cursor) return null;
+  const parts = cursor.split(':');
+  if (parts.length !== 2) return null;
+  return { blockNumber: parts[0], logIndex: Number(parts[1]) };
+}
+
+export function buildCursor(blockNumber: string, logIndex: number): string {
+  return `${blockNumber}:${logIndex}`;
+}

@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
+import { DataSource, MoreThanOrEqual, Repository } from 'typeorm';
 import { ChainProvider, CHAIN_PROVIDER } from '@app/chain-provider';
 import { BlockEntity } from '@app/db/entities/block.entity';
 import { LogEntity } from '@app/db/entities/log.entity';
@@ -54,6 +54,8 @@ export class ReorgDetectionService {
     private readonly reorgRepo: Repository<ReorgEventEntity>,
 
     private readonly metrics: MetricsService,
+
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -179,6 +181,12 @@ export class ReorgDetectionService {
       .delete()
       .where('"block_number" >= :from', { from: String(rollbackFrom) })
       .execute();
+
+    // Delete rolled-back NFT holdings
+    await this.dataSource.query(
+      `DELETE FROM "address_nft_holdings" WHERE "last_transfer_block" >= $1`,
+      [String(rollbackFrom)],
+    );
 
     // Delete orphaned nft_transfers and recompute ownership
     // First, delete ownership/balance rows that were last updated in rolled-back blocks

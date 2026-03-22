@@ -1,9 +1,14 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { NftsService } from './nfts.service';
-import { PaginationQueryDto } from '../common/pagination';
+import { PaginationQueryDto, CursorQueryDto } from '../common/pagination';
 import { AddressParamDto } from '../common/params';
-import { NftTransferDto, Erc721OwnershipDto, ApiPaginatedResponse } from '../common/dto';
+import {
+  NftTransferDto,
+  Erc721OwnershipDto,
+  ApiPaginatedResponse,
+  ApiCursorPaginatedResponse,
+} from '../common/dto';
 import { NftTokenDetailDto } from './dto/nft-token-detail.dto';
 
 @ApiTags('NFTs')
@@ -12,16 +17,16 @@ export class NftsController {
   constructor(private readonly nftsService: NftsService) {}
 
   @Get('collections/:address/transfers')
-  @ApiOperation({ summary: 'Get paginated transfers for an NFT collection' })
-  @ApiPaginatedResponse(NftTransferDto)
+  @ApiOperation({ summary: 'Get cursor-paginated transfers for an NFT collection' })
+  @ApiCursorPaginatedResponse(NftTransferDto)
   async getCollectionTransfers(
     @Param() params: AddressParamDto,
-    @Query() query: PaginationQueryDto,
+    @Query() query: CursorQueryDto,
   ) {
     return this.nftsService.getCollectionTransfers(
       params.address,
       query.limit!,
-      query.offset!,
+      query.cursor,
     );
   }
 
@@ -36,18 +41,18 @@ export class NftsController {
   }
 
   @Get('collections/:address/tokens/:tokenId/transfers')
-  @ApiOperation({ summary: 'Get transfer history for a specific token' })
-  @ApiPaginatedResponse(NftTransferDto)
+  @ApiOperation({ summary: 'Get cursor-paginated transfer history for a specific token' })
+  @ApiCursorPaginatedResponse(NftTransferDto)
   async getTokenTransfers(
     @Param('address') address: string,
     @Param('tokenId') tokenId: string,
-    @Query() query: PaginationQueryDto,
+    @Query() query: CursorQueryDto,
   ) {
     return this.nftsService.getTokenTransfers(
       address,
       tokenId,
       query.limit!,
-      query.offset!,
+      query.cursor,
     );
   }
 
