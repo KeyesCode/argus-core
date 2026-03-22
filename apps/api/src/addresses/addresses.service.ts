@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TransactionEntity } from '@app/db/entities/transaction.entity';
 import { TokenTransferEntity } from '@app/db/entities/token-transfer.entity';
+import { PaginatedResponse } from '../common/pagination';
 
 @Injectable()
 export class AddressesService {
@@ -41,29 +42,37 @@ export class AddressesService {
     };
   }
 
-  async getTransactions(address: string, take: number, skip: number) {
+  async getTransactions(
+    address: string,
+    limit: number,
+    offset: number,
+  ): Promise<PaginatedResponse<TransactionEntity>> {
     const normalized = address.toLowerCase();
 
-    const [transactions, total] = await this.txRepo.findAndCount({
+    const [items, total] = await this.txRepo.findAndCount({
       where: [{ fromAddress: normalized }, { toAddress: normalized }],
       order: { blockNumber: 'DESC', transactionIndex: 'DESC' },
-      take,
-      skip,
+      take: limit,
+      skip: offset,
     });
 
-    return { transactions, total, limit: take, offset: skip };
+    return { items, total, limit, offset };
   }
 
-  async getTokenTransfers(address: string, take: number, skip: number) {
+  async getTokenTransfers(
+    address: string,
+    limit: number,
+    offset: number,
+  ): Promise<PaginatedResponse<TokenTransferEntity>> {
     const normalized = address.toLowerCase();
 
-    const [transfers, total] = await this.transferRepo.findAndCount({
+    const [items, total] = await this.transferRepo.findAndCount({
       where: [{ fromAddress: normalized }, { toAddress: normalized }],
       order: { blockNumber: 'DESC', logIndex: 'DESC' },
-      take,
-      skip,
+      take: limit,
+      skip: offset,
     });
 
-    return { transfers, total, limit: take, offset: skip };
+    return { items, total, limit, offset };
   }
 }

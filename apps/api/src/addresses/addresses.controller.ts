@@ -1,37 +1,46 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AddressesService } from './addresses.service';
-import { parsePagination } from '../common/pagination';
+import { PaginationQueryDto, LimitQueryDto } from '../common/pagination';
+import { AddressParamDto } from '../common/params';
 
+@ApiTags('Addresses')
 @Controller('addresses')
 export class AddressesController {
   constructor(private readonly addressesService: AddressesService) {}
 
   @Get(':address')
+  @ApiOperation({ summary: 'Get address overview with recent activity' })
   async getAddressOverview(
-    @Param('address') address: string,
-    @Query('limit') limit?: string,
+    @Param() params: AddressParamDto,
+    @Query() query: LimitQueryDto,
   ) {
-    const { take } = parsePagination(limit);
-    return this.addressesService.getOverview(address, take);
+    return this.addressesService.getOverview(params.address, query.limit!);
   }
 
   @Get(':address/transactions')
+  @ApiOperation({ summary: 'Get paginated transactions for an address' })
   async getAddressTransactions(
-    @Param('address') address: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Param() params: AddressParamDto,
+    @Query() query: PaginationQueryDto,
   ) {
-    const { take, skip } = parsePagination(limit, offset);
-    return this.addressesService.getTransactions(address, take, skip);
+    return this.addressesService.getTransactions(
+      params.address,
+      query.limit!,
+      query.offset!,
+    );
   }
 
   @Get(':address/token-transfers')
+  @ApiOperation({ summary: 'Get paginated token transfers for an address' })
   async getAddressTokenTransfers(
-    @Param('address') address: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Param() params: AddressParamDto,
+    @Query() query: PaginationQueryDto,
   ) {
-    const { take, skip } = parsePagination(limit, offset);
-    return this.addressesService.getTokenTransfers(address, take, skip);
+    return this.addressesService.getTokenTransfers(
+      params.address,
+      query.limit!,
+      query.offset!,
+    );
   }
 }

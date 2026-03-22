@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TokenContractEntity } from '@app/db/entities/token-contract.entity';
 import { TokenTransferEntity } from '@app/db/entities/token-transfer.entity';
+import { PaginatedResponse } from '../common/pagination';
 
 @Injectable()
 export class TokensService {
@@ -38,16 +39,20 @@ export class TokensService {
     return { token, recentTransfers };
   }
 
-  async getTokenTransfers(address: string, take: number, skip: number) {
+  async getTokenTransfers(
+    address: string,
+    limit: number,
+    offset: number,
+  ): Promise<PaginatedResponse<TokenTransferEntity>> {
     const normalized = address.toLowerCase();
 
-    const [transfers, total] = await this.transferRepo.findAndCount({
+    const [items, total] = await this.transferRepo.findAndCount({
       where: { tokenAddress: normalized },
       order: { blockNumber: 'DESC', logIndex: 'DESC' },
-      take,
-      skip,
+      take: limit,
+      skip: offset,
     });
 
-    return { transfers, total, limit: take, offset: skip };
+    return { items, total, limit, offset };
   }
 }

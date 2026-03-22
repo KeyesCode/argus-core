@@ -1,15 +1,16 @@
-import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SearchService } from './search.service';
+import { SearchQueryDto } from './dto/search-query.dto';
 
+@ApiTags('Search')
 @Controller('search')
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
   @Get()
-  async search(@Query('q') query: string) {
-    if (!query || query.trim().length === 0) {
-      throw new BadRequestException('Query parameter "q" is required');
-    }
-    return this.searchService.search(query);
+  @ApiOperation({ summary: 'Search by tx hash, address, block number, or block hash' })
+  async search(@Query() query: SearchQueryDto) {
+    return this.searchService.search(query.q);
   }
 }
