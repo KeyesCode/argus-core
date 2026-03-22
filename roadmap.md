@@ -219,8 +219,10 @@ Separate:
 - [x] Compound events use non-indexed params (all in data) — different decode pattern from Aave
 - [x] Self-registering, backfill-integrated, reorg-safe
 
-### ERC-4626 Vaults
-- [ ] Deposit / Withdraw
+### ERC-4626 Vaults — COMPLETE
+- [x] Erc4626Decoder — Deposit and Withdraw events
+- [x] Reuses lending_events table with protocol_name = ERC4626
+- [x] Self-registering, backfill-integrated, reorg-safe
 
 ### Bridges
 - [ ] LayerZero
@@ -320,5 +322,6 @@ Do NOT include:
 4. ~~ERC-20 Approvals + Uniswap V3~~ DONE
 5. ~~NFT marketplaces (Seaport + Blur)~~ DONE
 6. ~~Lending: Aave + Compound~~ DONE
-7. **ERC-4626 Vaults** ← NEXT
-8. Advanced protocols
+7. ~~ERC-4626 Vaults~~ DONE
+8. **Bridges** ← NEXT
+9. Advanced protocols

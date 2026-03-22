@@ -43,6 +43,7 @@ import { SeaportDecoder } from '../apps/worker-decode/src/decode/protocols/seapo
 import { BlurDecoder } from '../apps/worker-decode/src/decode/protocols/blur/blur.decoder';
 import { AaveDecoder } from '../apps/worker-decode/src/decode/protocols/aave/aave.decoder';
 import { CompoundDecoder } from '../apps/worker-decode/src/decode/protocols/compound/compound.decoder';
+import { Erc4626Decoder } from '../apps/worker-decode/src/decode/protocols/erc4626/erc4626.decoder';
 import { BlocksController } from '../apps/api/src/blocks/blocks.controller';
 import { BlocksService } from '../apps/api/src/blocks/blocks.service';
 import { TransactionsController } from '../apps/api/src/transactions/transactions.controller';
@@ -132,6 +133,7 @@ describe('Phase 1: End-to-end system validation', () => {
         BlurDecoder,
         AaveDecoder,
         CompoundDecoder,
+        Erc4626Decoder,
         SummaryService,
         PartitionManagerService,
         // API services
@@ -196,6 +198,7 @@ describe('Phase 1: End-to-end system validation', () => {
     module.get(BlurDecoder).onModuleInit();
     module.get(AaveDecoder).onModuleInit();
     module.get(CompoundDecoder).onModuleInit();
+    module.get(Erc4626Decoder).onModuleInit();
 
     blocksController = module.get(BlocksController);
     transactionsController = module.get(TransactionsController);
@@ -1842,6 +1845,52 @@ describe('Phase 1: End-to-end system validation', () => {
 
       expect(aaveCount).toBeGreaterThan(0);
       expect(compoundCount).toBeGreaterThan(0);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // 21. ERC-4626 vault decoding
+  // ────────────────────────────────────────────────────────────────
+  describe('ERC-4626 vault decoding', () => {
+    beforeEach(async () => {
+      // Block 10 has ERC-4626 Deposit log
+      await blockSyncService.syncNextBatch(10);
+      for (let bn = 1; bn <= 10; bn++) {
+        await receiptSyncService.syncReceiptsForBlock(bn);
+      }
+    });
+
+    it('should decode ERC-4626 Deposit events into lending_events', async () => {
+      for (let bn = 1; bn <= 10; bn++) {
+        await protocolRegistry.decodeBlock(bn);
+      }
+
+      const vaultEvents = await lendingRepo.find({
+        where: { protocolName: 'ERC4626' },
+      });
+      expect(vaultEvents.length).toBeGreaterThan(0);
+
+      for (const event of vaultEvents) {
+        expect(event.protocolName).toBe('ERC4626');
+        expect(event.eventType).toBe('DEPOSIT');
+        expect(event.assetAddress).toBe('0x83f20f44975d03b1b09e64809b757c47f942beea'); // sDAI vault
+        expect(event.userAddress).toMatch(/^0x[0-9a-f]{40}$/);
+        expect(BigInt(event.amount)).toBe(BigInt('1000000000000000000000')); // 1000 DAI
+      }
+    });
+
+    it('should coexist with Aave and Compound in lending_events', async () => {
+      for (let bn = 1; bn <= 10; bn++) {
+        await protocolRegistry.decodeBlock(bn);
+      }
+
+      const aaveCount = await lendingRepo.count({ where: { protocolName: 'AAVE' } });
+      const compoundCount = await lendingRepo.count({ where: { protocolName: 'COMPOUND' } });
+      const vaultCount = await lendingRepo.count({ where: { protocolName: 'ERC4626' } });
+
+      expect(aaveCount).toBeGreaterThan(0);
+      expect(compoundCount).toBeGreaterThan(0);
+      expect(vaultCount).toBeGreaterThan(0);
     });
   });
 });

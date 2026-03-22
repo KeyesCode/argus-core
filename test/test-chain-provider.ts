@@ -16,6 +16,7 @@ const SEAPORT_ORDER_FULFILLED_TOPIC = '0x9d9af8e38d66c62e2c12f0225249fd9d721c54b
 const BLUR_ORDERS_MATCHED_TOPIC = '0xccba862546b05c8c66e45ac1e0eb064e777f59aee70b88930f052da1829fcfd7';
 const AAVE_V2_DEPOSIT_TOPIC = '0xde6857219544bb5b7746f48ed30be6386fefc61b2f864cacf559893bf50fd951';
 const COMPOUND_MINT_TOPIC = '0x4c209b5fc8ad50758f13e2e1088ba56a560dff690a1c6fef26394f4c03821c4f';
+const ERC4626_DEPOSIT_TOPIC = '0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7';
 
 const BLUR_ORDER_TUPLE = 'tuple(address,uint8,address,address,uint256,uint256,address,uint256,uint256,uint256,tuple(uint16,address)[],uint256,bytes)';
 const BLUR_INPUT_TUPLE = 'tuple(uint8,uint256,uint256,uint256,bool,address,bytes)';
@@ -434,6 +435,30 @@ export class TestChainProvider implements ChainProvider {
         logIndex: logs.length,
         data: compoundData,
         topics: [COMPOUND_MINT_TOPIC],
+        removed: false,
+      });
+    }
+
+    // ERC-4626 Deposit log on blocks divisible by 10, tx index 0
+    const hasVaultDeposit = blockNumber % 10 === 0 && tx.transactionIndex === 0;
+    if (hasVaultDeposit) {
+      const vaultAddress = '0x83f20f44975d03b1b09e64809b757c47f942beea'; // sDAI-like
+      const senderPadded4626 = `0x000000000000000000000000${tx.from.slice(2)}`;
+      const ownerPadded4626 = `0x000000000000000000000000${tx.from.slice(2)}`;
+      // Data: uint256 assets, uint256 shares
+      const vaultData = AbiCoder.defaultAbiCoder().encode(
+        ['uint256', 'uint256'],
+        [BigInt('1000000000000000000000'), BigInt('950000000000000000000')], // 1000 DAI → 950 sDAI
+      );
+
+      logs.push({
+        address: vaultAddress,
+        blockNumber,
+        transactionHash: tx.hash,
+        transactionIndex: tx.transactionIndex,
+        logIndex: logs.length,
+        data: vaultData,
+        topics: [ERC4626_DEPOSIT_TOPIC, senderPadded4626, ownerPadded4626],
         removed: false,
       });
     }

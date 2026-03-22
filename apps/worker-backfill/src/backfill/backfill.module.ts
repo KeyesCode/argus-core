@@ -36,6 +36,7 @@ import { SeaportDecoder } from '../../../worker-decode/src/decode/protocols/seap
 import { BlurDecoder } from '../../../worker-decode/src/decode/protocols/blur/blur.decoder';
 import { AaveDecoder } from '../../../worker-decode/src/decode/protocols/aave/aave.decoder';
 import { CompoundDecoder } from '../../../worker-decode/src/decode/protocols/compound/compound.decoder';
+import { Erc4626Decoder } from '../../../worker-decode/src/decode/protocols/erc4626/erc4626.decoder';
 import { LendingEventEntity } from '@app/db/entities/lending-event.entity';
 
 @Module({
@@ -80,6 +81,7 @@ import { LendingEventEntity } from '@app/db/entities/lending-event.entity';
     BlurDecoder,
     AaveDecoder,
     CompoundDecoder,
+    Erc4626Decoder,
   ],
   exports: [BackfillJobService, BackfillRunnerService, RangePlannerService],
 })
