@@ -17,10 +17,15 @@ import { Erc20TransferDecoderService } from '../apps/worker-decode/src/decode/se
 import { BackfillJobService } from '../apps/worker-backfill/src/backfill/services/backfill-job.service';
 import { BackfillRunnerService } from '../apps/worker-backfill/src/backfill/services/backfill-runner.service';
 import { BlocksController } from '../apps/api/src/blocks/blocks.controller';
+import { BlocksService } from '../apps/api/src/blocks/blocks.service';
 import { TransactionsController } from '../apps/api/src/transactions/transactions.controller';
+import { TransactionsService } from '../apps/api/src/transactions/transactions.service';
 import { AddressesController } from '../apps/api/src/addresses/addresses.controller';
+import { AddressesService } from '../apps/api/src/addresses/addresses.service';
 import { SearchController } from '../apps/api/src/search/search.controller';
+import { SearchService } from '../apps/api/src/search/search.service';
 import { TokensController } from '../apps/api/src/tokens/tokens.controller';
+import { TokensService } from '../apps/api/src/tokens/tokens.service';
 import { createTestModule, clearDatabase, MockQueue } from './setup';
 import { TestChainProvider } from './test-chain-provider';
 import { MetricsService } from '@app/common/metrics/metrics.service';
@@ -61,6 +66,7 @@ describe('Phase 1: End-to-end system validation', () => {
 
     const result = await createTestModule(
       [
+        // Worker services
         BlockSyncService,
         ReceiptSyncService,
         CheckpointService,
@@ -68,6 +74,12 @@ describe('Phase 1: End-to-end system validation', () => {
         Erc20TransferDecoderService,
         BackfillJobService,
         BackfillRunnerService,
+        // API services
+        BlocksService,
+        TransactionsService,
+        AddressesService,
+        SearchService,
+        TokensService,
       ],
       [
         BlocksController,

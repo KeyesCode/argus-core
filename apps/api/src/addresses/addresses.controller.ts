@@ -1,60 +1,18 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { TransactionEntity } from '@app/db/entities/transaction.entity';
-import { TokenTransferEntity } from '@app/db/entities/token-transfer.entity';
+import { AddressesService } from './addresses.service';
+import { parsePagination } from '../common/pagination';
 
 @Controller('addresses')
 export class AddressesController {
-  constructor(
-    @InjectRepository(TransactionEntity)
-    private readonly txRepo: Repository<TransactionEntity>,
-
-    @InjectRepository(TokenTransferEntity)
-    private readonly transferRepo: Repository<TokenTransferEntity>,
-  ) {}
+  constructor(private readonly addressesService: AddressesService) {}
 
   @Get(':address')
   async getAddressOverview(
     @Param('address') address: string,
     @Query('limit') limit?: string,
   ) {
-    const normalized = address.toLowerCase();
-    const take = Math.min(Number(limit ?? 25), 100);
-
-    const [transactions, tokenTransfers, txCount] = await Promise.all([
-      this.txRepo.find({
-        where: [
-          { fromAddress: normalized },
-          { toAddress: normalized },
-        ],
-        order: { blockNumber: 'DESC', transactionIndex: 'DESC' },
-        take,
-      }),
-
-      this.transferRepo.find({
-        where: [
-          { fromAddress: normalized },
-          { toAddress: normalized },
-        ],
-        order: { blockNumber: 'DESC', logIndex: 'DESC' },
-        take,
-      }),
-
-      this.txRepo.count({
-        where: [
-          { fromAddress: normalized },
-          { toAddress: normalized },
-        ],
-      }),
-    ]);
-
-    return {
-      address: normalized,
-      transactionCount: txCount,
-      recentTransactions: transactions,
-      recentTokenTransfers: tokenTransfers,
-    };
+    const { take } = parsePagination(limit);
+    return this.addressesService.getOverview(address, take);
   }
 
   @Get(':address/transactions')
@@ -63,21 +21,8 @@ export class AddressesController {
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
-    const normalized = address.toLowerCase();
-    const take = Math.min(Number(limit ?? 25), 100);
-    const skip = Number(offset ?? 0);
-
-    const [transactions, total] = await this.txRepo.findAndCount({
-      where: [
-        { fromAddress: normalized },
-        { toAddress: normalized },
-      ],
-      order: { blockNumber: 'DESC', transactionIndex: 'DESC' },
-      take,
-      skip,
-    });
-
-    return { transactions, total, limit: take, offset: skip };
+    const { take, skip } = parsePagination(limit, offset);
+    return this.addressesService.getTransactions(address, take, skip);
   }
 
   @Get(':address/token-transfers')
@@ -86,20 +31,7 @@ export class AddressesController {
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
-    const normalized = address.toLowerCase();
-    const take = Math.min(Number(limit ?? 25), 100);
-    const skip = Number(offset ?? 0);
-
-    const [transfers, total] = await this.transferRepo.findAndCount({
-      where: [
-        { fromAddress: normalized },
-        { toAddress: normalized },
-      ],
-      order: { blockNumber: 'DESC', logIndex: 'DESC' },
-      take,
-      skip,
-    });
-
-    return { transfers, total, limit: take, offset: skip };
+    const { take, skip } = parsePagination(limit, offset);
+    return this.addressesService.getTokenTransfers(address, take, skip);
   }
 }
