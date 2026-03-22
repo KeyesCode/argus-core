@@ -158,24 +158,29 @@ export class BackfillRunnerService {
 
     // Insert transactions
     if (block.transactions.length > 0) {
-      await this.txRepo.upsert(
-        block.transactions.map((tx) => ({
-          hash: normalizeHash(tx.hash),
-          blockNumber: String(tx.blockNumber),
-          transactionIndex: tx.transactionIndex,
-          fromAddress: normalizeAddress(tx.from),
-          toAddress: tx.to ? normalizeAddress(tx.to) : null,
-          value: tx.value,
-          inputData: tx.input,
-          nonce: String(tx.nonce),
-          gas: tx.gas,
-          gasPrice: tx.gasPrice ?? null,
-          maxFeePerGas: tx.maxFeePerGas ?? null,
-          maxPriorityFeePerGas: tx.maxPriorityFeePerGas ?? null,
-          type: tx.type ?? null,
-        })),
-        ['hash'],
-      );
+      await this.txRepo
+        .createQueryBuilder()
+        .insert()
+        .into('transactions')
+        .values(
+          block.transactions.map((tx) => ({
+            hash: normalizeHash(tx.hash),
+            blockNumber: String(tx.blockNumber),
+            transactionIndex: tx.transactionIndex,
+            fromAddress: normalizeAddress(tx.from),
+            toAddress: tx.to ? normalizeAddress(tx.to) : null,
+            value: tx.value,
+            inputData: tx.input,
+            nonce: String(tx.nonce),
+            gas: tx.gas,
+            gasPrice: tx.gasPrice ?? null,
+            maxFeePerGas: tx.maxFeePerGas ?? null,
+            maxPriorityFeePerGas: tx.maxPriorityFeePerGas ?? null,
+            type: tx.type ?? null,
+          })),
+        )
+        .orIgnore()
+        .execute();
 
       // Fetch and store receipts + logs
       for (const tx of block.transactions) {
@@ -184,8 +189,11 @@ export class BackfillRunnerService {
         );
         if (!receipt) continue;
 
-        await this.receiptRepo.upsert(
-          {
+        await this.receiptRepo
+          .createQueryBuilder()
+          .insert()
+          .into('transaction_receipts')
+          .values({
             transactionHash: normalizeHash(receipt.transactionHash),
             blockNumber: String(receipt.blockNumber),
             fromAddress: normalizeAddress(receipt.from),
@@ -197,9 +205,9 @@ export class BackfillRunnerService {
             cumulativeGasUsed: receipt.cumulativeGasUsed,
             effectiveGasPrice: receipt.effectiveGasPrice ?? null,
             status: receipt.status,
-          },
-          ['transactionHash'],
-        );
+          })
+          .orIgnore()
+          .execute();
 
         if (receipt.logs.length > 0) {
           await this.logRepo

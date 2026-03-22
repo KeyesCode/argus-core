@@ -121,24 +121,29 @@ export class BlockSyncService {
     );
 
     if (block.transactions.length > 0) {
-      await this.txRepo.upsert(
-        block.transactions.map((tx) => ({
-          hash: normalizeHash(tx.hash),
-          blockNumber: String(tx.blockNumber),
-          transactionIndex: tx.transactionIndex,
-          fromAddress: normalizeAddress(tx.from),
-          toAddress: tx.to ? normalizeAddress(tx.to) : null,
-          value: tx.value,
-          inputData: tx.input,
-          nonce: String(tx.nonce),
-          gas: tx.gas,
-          gasPrice: tx.gasPrice ?? null,
-          maxFeePerGas: tx.maxFeePerGas ?? null,
-          maxPriorityFeePerGas: tx.maxPriorityFeePerGas ?? null,
-          type: tx.type ?? null,
-        })),
-        ['hash'],
-      );
+      await this.txRepo
+        .createQueryBuilder()
+        .insert()
+        .into('transactions')
+        .values(
+          block.transactions.map((tx) => ({
+            hash: normalizeHash(tx.hash),
+            blockNumber: String(tx.blockNumber),
+            transactionIndex: tx.transactionIndex,
+            fromAddress: normalizeAddress(tx.from),
+            toAddress: tx.to ? normalizeAddress(tx.to) : null,
+            value: tx.value,
+            inputData: tx.input,
+            nonce: String(tx.nonce),
+            gas: tx.gas,
+            gasPrice: tx.gasPrice ?? null,
+            maxFeePerGas: tx.maxFeePerGas ?? null,
+            maxPriorityFeePerGas: tx.maxPriorityFeePerGas ?? null,
+            type: tx.type ?? null,
+          })),
+        )
+        .orIgnore()
+        .execute();
     }
 
     // Enqueue receipt/log processing for this block
