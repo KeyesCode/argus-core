@@ -22,3 +22,4 @@ export * from './entities/dex-pair.entity';
 export * from './entities/dex-swap.entity';
 export * from './entities/token-approval.entity';
 export * from './entities/token-allowance.entity';
+export * from './entities/nft-sale.entity';

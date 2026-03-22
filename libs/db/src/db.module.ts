@@ -23,6 +23,7 @@ import { DexPairEntity } from './entities/dex-pair.entity';
 import { DexSwapEntity } from './entities/dex-swap.entity';
 import { TokenApprovalEntity } from './entities/token-approval.entity';
 import { TokenAllowanceEntity } from './entities/token-allowance.entity';
+import { NftSaleEntity } from './entities/nft-sale.entity';
 
 const entities = [
   BlockEntity,
@@ -48,6 +49,7 @@ const entities = [
   DexSwapEntity,
   TokenApprovalEntity,
   TokenAllowanceEntity,
+  NftSaleEntity,
 ];
 
 @Global()

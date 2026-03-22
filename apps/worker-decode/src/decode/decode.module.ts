@@ -27,6 +27,8 @@ import { NftMetadataProcessor } from './processors/nft-metadata-processor';
 import { ProtocolRegistryService } from './protocols/protocol-registry.service';
 import { UniswapV2Decoder } from './protocols/uniswap-v2/uniswap-v2.decoder';
 import { UniswapV3Decoder } from './protocols/uniswap-v3/uniswap-v3.decoder';
+import { SeaportDecoder } from './protocols/seaport/seaport.decoder';
+import { NftSaleEntity } from '@app/db/entities/nft-sale.entity';
 
 @Module({
   imports: [
@@ -44,6 +46,7 @@ import { UniswapV3Decoder } from './protocols/uniswap-v3/uniswap-v3.decoder';
       DexSwapEntity,
       DexPairEntity,
       ProtocolContractEntity,
+      NftSaleEntity,
       TokenApprovalEntity,
       TokenAllowanceEntity,
     ]),
@@ -61,6 +64,7 @@ import { UniswapV3Decoder } from './protocols/uniswap-v3/uniswap-v3.decoder';
     ProtocolRegistryService,
     UniswapV2Decoder,
     UniswapV3Decoder,
+    SeaportDecoder,
   ],
   exports: [Erc20TransferDecoderService, NftTransferDecoderService, TokenMetadataService, NftMetadataService, ProtocolRegistryService],
 })

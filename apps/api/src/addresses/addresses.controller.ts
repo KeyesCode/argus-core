@@ -115,4 +115,13 @@ export class AddressesController {
   ) {
     return this.tokensService.getAllowances(params.address, query.limit!, query.offset!);
   }
+
+  @Get(':address/nft-sales')
+  @ApiOperation({ summary: 'Get cursor-paginated NFT sale history for an address' })
+  async getAddressNftSales(
+    @Param() params: AddressParamDto,
+    @Query() query: CursorQueryDto,
+  ) {
+    return this.nftsService.getAddressSales(params.address, query.limit!, query.cursor);
+  }
 }

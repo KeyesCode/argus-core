@@ -71,4 +71,13 @@ export class NftsController {
       query.offset!,
     );
   }
+
+  @Get('collections/:address/sales')
+  @ApiOperation({ summary: 'Get cursor-paginated NFT sales for a collection' })
+  async getCollectionSales(
+    @Param() params: AddressParamDto,
+    @Query() query: CursorQueryDto,
+  ) {
+    return this.nftsService.getCollectionSales(params.address, query.limit!, query.cursor);
+  }
 }

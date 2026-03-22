@@ -6,6 +6,7 @@ import { Erc1155BalanceEntity } from '@app/db/entities/erc1155-balance.entity';
 import { NftTokenMetadataEntity } from '@app/db/entities/nft-token-metadata.entity';
 import { AddressNftHoldingEntity } from '@app/db/entities/address-nft-holding.entity';
 import { NftContractStatsEntity } from '@app/db/entities/nft-contract-stats.entity';
+import { NftSaleEntity } from '@app/db/entities/nft-sale.entity';
 import { NftsController } from './nfts.controller';
 import { NftsService } from './nfts.service';
 
@@ -18,6 +19,7 @@ import { NftsService } from './nfts.service';
       NftTokenMetadataEntity,
       AddressNftHoldingEntity,
       NftContractStatsEntity,
+      NftSaleEntity,
     ]),
   ],
   controllers: [NftsController],

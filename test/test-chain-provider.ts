@@ -12,6 +12,7 @@ import { AbiCoder } from 'ethers';
 
 const UNISWAP_V2_SWAP_TOPIC = '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822';
 const UNISWAP_V3_SWAP_TOPIC = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
+const SEAPORT_ORDER_FULFILLED_TOPIC = '0x9d9af8e38d66c62e2c12f0225249fd9d721c54b83f48d9352c97c6cacdcb6f31';
 
 /**
  * A test chain provider that generates deterministic, realistic blockchain data.
@@ -302,6 +303,45 @@ export class TestChainProvider implements ChainProvider {
         logIndex: logs.length,
         data: v3SwapData,
         topics: [UNISWAP_V3_SWAP_TOPIC, senderPaddedV3, recipientPaddedV3],
+        removed: false,
+      });
+    }
+
+    // Seaport OrderFulfilled log on blocks divisible by 11, tx index 0
+    const hasSeaportSale = blockNumber % 11 === 0 && tx.transactionIndex === 0;
+    if (hasSeaportSale) {
+      const seaportAddress = '0x00000000000000adc04c56bf30ac9d3c0aaf14dc'; // Seaport 1.5
+      const offererPadded = `0x000000000000000000000000${tx.from.slice(2)}`;
+      const zonePadded = `0x${'00'.repeat(32)}`.slice(0, 66);
+      const nftCollection = '0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d';
+      const orderHash = `0x${blockNumber.toString(16).padStart(64, '0')}`;
+
+      // Encode: bytes32 orderHash, address recipient, SpentItem[] offer, ReceivedItem[] consideration
+      // Offer: 1 ERC-721 NFT (itemType=2, token=collection, identifier=tokenId, amount=1)
+      // Consideration: ETH payment (itemType=0, token=0x0, identifier=0, amount=1 ETH, recipient=offerer)
+      const seaportData = AbiCoder.defaultAbiCoder().encode(
+        [
+          'bytes32',
+          'address',
+          'tuple(uint8,address,uint256,uint256)[]',
+          'tuple(uint8,address,uint256,uint256,address)[]',
+        ],
+        [
+          orderHash,
+          tx.to!, // recipient (buyer)
+          [[2, nftCollection, BigInt(blockNumber * 10), BigInt(1)]], // offer: ERC-721
+          [[0, '0x0000000000000000000000000000000000000000', BigInt(0), BigInt('1000000000000000000'), tx.from]], // consideration: 1 ETH to seller
+        ],
+      );
+
+      logs.push({
+        address: seaportAddress,
+        blockNumber,
+        transactionHash: tx.hash,
+        transactionIndex: tx.transactionIndex,
+        logIndex: logs.length,
+        data: seaportData,
+        topics: [SEAPORT_ORDER_FULFILLED_TOPIC, offererPadded, zonePadded],
         removed: false,
       });
     }

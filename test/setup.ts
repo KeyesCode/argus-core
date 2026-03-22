@@ -23,6 +23,7 @@ import { ContractStandardEntity } from '@app/db/entities/contract-standard.entit
 import { ProtocolContractEntity } from '@app/db/entities/protocol-contract.entity';
 import { DexPairEntity } from '@app/db/entities/dex-pair.entity';
 import { DexSwapEntity } from '@app/db/entities/dex-swap.entity';
+import { NftSaleEntity } from '@app/db/entities/nft-sale.entity';
 import { TokenApprovalEntity } from '@app/db/entities/token-approval.entity';
 import { TokenAllowanceEntity } from '@app/db/entities/token-allowance.entity';
 import { CHAIN_PROVIDER } from '@app/chain-provider/chain-provider.interface';
@@ -52,6 +53,7 @@ export const ALL_ENTITIES = [
   ProtocolContractEntity,
   DexPairEntity,
   DexSwapEntity,
+  NftSaleEntity,
   TokenApprovalEntity,
   TokenAllowanceEntity,
 ];
@@ -143,6 +145,7 @@ export async function clearDatabase(module: TestingModule): Promise<void> {
   await dataSource.query('DELETE FROM "contract_standards"');
   await dataSource.query('DELETE FROM "token_allowances_current"');
   await dataSource.query('DELETE FROM "token_approvals"');
+  await dataSource.query('DELETE FROM "nft_sales"');
   await dataSource.query('DELETE FROM "dex_swaps"');
   await dataSource.query('DELETE FROM "dex_pairs"');
   await dataSource.query('DELETE FROM "protocol_contracts"');

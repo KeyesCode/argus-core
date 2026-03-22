@@ -16,6 +16,7 @@ import { AddressNftHoldingEntity } from '@app/db/entities/address-nft-holding.en
 import { NftContractStatsEntity } from '@app/db/entities/nft-contract-stats.entity';
 import { DexSwapEntity } from '@app/db/entities/dex-swap.entity';
 import { DexPairEntity } from '@app/db/entities/dex-pair.entity';
+import { NftSaleEntity } from '@app/db/entities/nft-sale.entity';
 import { TokenApprovalEntity } from '@app/db/entities/token-approval.entity';
 import { TokenAllowanceEntity } from '@app/db/entities/token-allowance.entity';
 import { BlockSyncService } from '../apps/worker-ingest/src/ingest/services/block-sync.service';
@@ -37,6 +38,7 @@ import { PartitionManagerService } from '../libs/db/src/services/partition-manag
 import { ProtocolRegistryService } from '../apps/worker-decode/src/decode/protocols/protocol-registry.service';
 import { UniswapV2Decoder } from '../apps/worker-decode/src/decode/protocols/uniswap-v2/uniswap-v2.decoder';
 import { UniswapV3Decoder } from '../apps/worker-decode/src/decode/protocols/uniswap-v3/uniswap-v3.decoder';
+import { SeaportDecoder } from '../apps/worker-decode/src/decode/protocols/seaport/seaport.decoder';
 import { BlocksController } from '../apps/api/src/blocks/blocks.controller';
 import { BlocksService } from '../apps/api/src/blocks/blocks.service';
 import { TransactionsController } from '../apps/api/src/transactions/transactions.controller';
@@ -77,6 +79,7 @@ describe('Phase 1: End-to-end system validation', () => {
   let approvalRepo: Repository<TokenApprovalEntity>;
   let allowanceRepo: Repository<TokenAllowanceEntity>;
   let approvalDecoder: Erc20ApprovalDecoderService;
+  let saleRepo: Repository<NftSaleEntity>;
 
   let blockSyncService: BlockSyncService;
   let receiptSyncService: ReceiptSyncService;
@@ -120,6 +123,7 @@ describe('Phase 1: End-to-end system validation', () => {
         ProtocolRegistryService,
         UniswapV2Decoder,
         UniswapV3Decoder,
+        SeaportDecoder,
         SummaryService,
         PartitionManagerService,
         // API services
@@ -161,6 +165,7 @@ describe('Phase 1: End-to-end system validation', () => {
     pairRepo = module.get(getRepositoryToken(DexPairEntity));
     approvalRepo = module.get(getRepositoryToken(TokenApprovalEntity));
     allowanceRepo = module.get(getRepositoryToken(TokenAllowanceEntity));
+    saleRepo = module.get(getRepositoryToken(NftSaleEntity));
 
     blockSyncService = module.get(BlockSyncService);
     receiptSyncService = module.get(ReceiptSyncService);
@@ -178,6 +183,7 @@ describe('Phase 1: End-to-end system validation', () => {
     // Manually trigger onModuleInit for protocol decoders (test module doesn't call lifecycle hooks)
     module.get(UniswapV2Decoder).onModuleInit();
     module.get(UniswapV3Decoder).onModuleInit();
+    module.get(SeaportDecoder).onModuleInit();
 
     blocksController = module.get(BlocksController);
     transactionsController = module.get(TransactionsController);
@@ -1347,8 +1353,7 @@ describe('Phase 1: End-to-end system validation', () => {
         totalDecoded += await protocolRegistry.decodeBlock(bn);
       }
 
-      const swaps = await swapRepo.find();
-      expect(swaps.length).toBe(totalDecoded);
+      const swaps = await swapRepo.find({ where: { protocolName: 'UNISWAP_V2' } });
       expect(swaps.length).toBeGreaterThan(0);
 
       // Verify swap fields
@@ -1609,6 +1614,67 @@ describe('Phase 1: End-to-end system validation', () => {
       const after = await swapRepo.count({ where: { protocolName: 'UNISWAP_V3' } });
 
       expect(after).toBe(before);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // 17. Seaport NFT marketplace decoding
+  // ────────────────────────────────────────────────────────────────
+  describe('Seaport NFT sale decoding', () => {
+    beforeEach(async () => {
+      // Block 11 has a Seaport OrderFulfilled log
+      await blockSyncService.syncNextBatch(11);
+      for (let bn = 1; bn <= 11; bn++) {
+        await receiptSyncService.syncReceiptsForBlock(bn);
+      }
+    });
+
+    it('should decode Seaport OrderFulfilled into nft_sales', async () => {
+      for (let bn = 1; bn <= 11; bn++) {
+        await protocolRegistry.decodeBlock(bn);
+      }
+
+      const sales = await saleRepo.find();
+      expect(sales.length).toBeGreaterThan(0);
+
+      for (const sale of sales) {
+        expect(sale.protocolName).toBe('SEAPORT');
+        expect(sale.collectionAddress).toBe('0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d');
+        expect(sale.tokenStandard).toBe('ERC721');
+        expect(sale.sellerAddress).toMatch(/^0x[0-9a-f]{40}$/);
+        expect(sale.buyerAddress).toMatch(/^0x[0-9a-f]{40}$/);
+        expect(sale.paymentToken).toBe('0x0000000000000000000000000000000000000000'); // ETH
+        expect(BigInt(sale.totalPrice)).toBe(BigInt('1000000000000000000')); // 1 ETH
+        expect(BigInt(sale.quantity)).toBe(1n);
+      }
+    });
+
+    it('should be idempotent for Seaport sales', async () => {
+      for (let bn = 1; bn <= 11; bn++) {
+        await protocolRegistry.decodeBlock(bn);
+      }
+      const before = await saleRepo.count();
+
+      for (let bn = 1; bn <= 11; bn++) {
+        await protocolRegistry.decodeBlock(bn);
+      }
+      const after = await saleRepo.count();
+
+      expect(after).toBe(before);
+    });
+
+    it('should rollback sales on reorg', async () => {
+      for (let bn = 1; bn <= 11; bn++) {
+        await protocolRegistry.decodeBlock(bn);
+      }
+
+      const before = await saleRepo.count();
+      expect(before).toBeGreaterThan(0);
+
+      await reorgDetectionService.rollback(10, 11);
+
+      const after = await saleRepo.count();
+      expect(after).toBe(0); // Only block 11 had sales, and it was rolled back
     });
   });
 });

@@ -7,6 +7,7 @@ import { Erc1155BalanceEntity } from '@app/db/entities/erc1155-balance.entity';
 import { AddressNftHoldingEntity } from '@app/db/entities/address-nft-holding.entity';
 import { NftTokenMetadataEntity } from '@app/db/entities/nft-token-metadata.entity';
 import { NftContractStatsEntity } from '@app/db/entities/nft-contract-stats.entity';
+import { NftSaleEntity } from '@app/db/entities/nft-sale.entity';
 import {
   PaginatedResponse,
   CursorPaginatedResponse,
@@ -34,6 +35,9 @@ export class NftsService {
 
     @InjectRepository(NftContractStatsEntity)
     private readonly statsRepo: Repository<NftContractStatsEntity>,
+
+    @InjectRepository(NftSaleEntity)
+    private readonly saleRepo: Repository<NftSaleEntity>,
   ) {}
 
   async getCollectionTransfers(
@@ -202,5 +206,67 @@ export class NftsService {
     return this.statsRepo.findOne({
       where: { tokenAddress: tokenAddress.toLowerCase() },
     });
+  }
+
+  async getCollectionSales(
+    collectionAddress: string,
+    limit: number,
+    cursor?: string,
+  ): Promise<CursorPaginatedResponse<NftSaleEntity>> {
+    const normalized = collectionAddress.toLowerCase();
+    const parsed = parseCursor(cursor);
+
+    const qb = this.saleRepo.createQueryBuilder('s')
+      .where('s.collection_address = :addr', { addr: normalized })
+      .orderBy('s.block_number', 'DESC')
+      .addOrderBy('s.log_index', 'DESC')
+      .take(limit + 1);
+
+    if (parsed) {
+      qb.andWhere(
+        '(s.block_number < :bn OR (s.block_number = :bn AND s.log_index < :li))',
+        { bn: parsed.blockNumber, li: parsed.logIndex },
+      );
+    }
+
+    const results = await qb.getMany();
+    const hasMore = results.length > limit;
+    const items = hasMore ? results.slice(0, limit) : results;
+    const nextCursor = hasMore
+      ? buildCursor(items[items.length - 1].blockNumber, items[items.length - 1].logIndex)
+      : null;
+
+    return { items, nextCursor, limit };
+  }
+
+  async getAddressSales(
+    address: string,
+    limit: number,
+    cursor?: string,
+  ): Promise<CursorPaginatedResponse<NftSaleEntity>> {
+    const normalized = address.toLowerCase();
+    const parsed = parseCursor(cursor);
+
+    const qb = this.saleRepo.createQueryBuilder('s')
+      .where('(s.seller_address = :addr OR s.buyer_address = :addr)', { addr: normalized })
+      .orderBy('s.block_number', 'DESC')
+      .addOrderBy('s.log_index', 'DESC')
+      .take(limit + 1);
+
+    if (parsed) {
+      qb.andWhere(
+        '(s.block_number < :bn OR (s.block_number = :bn AND s.log_index < :li))',
+        { bn: parsed.blockNumber, li: parsed.logIndex },
+      );
+    }
+
+    const results = await qb.getMany();
+    const hasMore = results.length > limit;
+    const items = hasMore ? results.slice(0, limit) : results;
+    const nextCursor = hasMore
+      ? buildCursor(items[items.length - 1].blockNumber, items[items.length - 1].logIndex)
+      : null;
+
+    return { items, nextCursor, limit };
   }
 }

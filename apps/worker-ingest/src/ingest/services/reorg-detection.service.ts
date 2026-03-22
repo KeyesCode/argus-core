@@ -182,6 +182,12 @@ export class ReorgDetectionService {
       .where('"block_number" >= :from', { from: String(rollbackFrom) })
       .execute();
 
+    // Delete rolled-back NFT sales
+    await this.dataSource.query(
+      `DELETE FROM "nft_sales" WHERE "block_number" >= $1`,
+      [String(rollbackFrom)],
+    );
+
     // Delete rolled-back approvals and recompute allowances
     await this.dataSource.query(
       `DELETE FROM "token_approvals" WHERE "block_number" >= $1`,

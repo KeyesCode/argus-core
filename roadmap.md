@@ -179,10 +179,16 @@ Separate:
 - [x] Idempotent (orIgnore on unique tx_hash + log_index)
 - [ ] Liquidity position tracking (optional, future)
 
-### NFT Marketplaces (Seaport / Blur)
-- [ ] Order fulfillment decoding
-- [ ] Sale normalization (nft_sales table)
-- [ ] Price extraction
+### NFT Marketplaces — Seaport COMPLETE
+- [x] Seaport OrderFulfilled event decoding (complex nested struct arrays)
+- [x] nft_sales table (collection, tokenId, seller, buyer, paymentToken, totalPrice)
+- [x] Sale direction detection: offer NFT + consideration ETH/ERC20 = sell, vice versa = buy
+- [x] Price extraction: sum consideration payments to seller
+- [x] Self-registering via ProtocolDecoder + onModuleInit
+- [x] Reorg rollback
+- [x] API: GET /nfts/collections/:address/sales (cursor paginated)
+- [x] API: GET /addresses/:address/nft-sales (cursor paginated)
+- [ ] Blur marketplace (future)
 
 ---
 
@@ -296,7 +302,7 @@ Do NOT include:
 2. ~~NFT support (Phase 2)~~ DONE
 3. ~~Protocol framework + Uniswap V2 (Phase 3)~~ DONE
 4. ~~ERC-20 Approvals + Uniswap V3~~ DONE
-5. **NFT marketplaces** ← NEXT
+5. ~~NFT marketplaces (Seaport)~~ DONE
 6. Lending protocols
 7. Bridges
 8. Advanced protocols
