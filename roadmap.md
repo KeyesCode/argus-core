@@ -284,9 +284,19 @@ Note: Requires multi-call reconstruction
 - [ ] Store verified contract ABIs
 - [ ] Auto-decode all events for verified contracts
 
-### Frontend explorer
-- [ ] Next.js frontend
-- [ ] Block, transaction, address, token, NFT pages
+### Frontend Explorer — COMPLETE
+- [x] Next.js 15 with App Router + Tailwind CSS v4
+- [x] Home page: stats dashboard + latest blocks + search bar
+- [x] Block list page: block table (age, miner, gas, base fee)
+- [x] Block detail page: header fields + transaction table
+- [x] Transaction detail page: status, from/to, value, gas, token transfers, event logs
+- [x] Address page with 6 tabs: Transactions, Tokens, NFTs, DEX Swaps, Allowances, Lending
+- [x] Token detail page: symbol, decimals, standard, recent transfers
+- [x] NFT collection page: transfer history table
+- [x] NFT token detail page: metadata image, description, owners, transfer history
+- [x] Search: auto-redirect to block/tx/address
+- [x] Pagination component (Previous/Next with page numbers)
+- [x] Dark theme, responsive, server-rendered
 - [ ] Real-time updates via WebSocket
 
 ---

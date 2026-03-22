@@ -9,7 +9,10 @@
       "WebFetch(domain:api.etherscan.io)",
       "Bash(grep -E \"\\\\.\\(md|MD\\)$\")",
       "Bash(ls -la /Users/tannerkeyes/Documents/KeyesCode/blockchain-indexer/*.json)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx create-next-app@latest explorer --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-yarn)",
+      "Bash(npx create-next-app@latest explorer --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-yarn --turbopack 2)",
+      "Bash(1:*)"
     ]
   }
 }
