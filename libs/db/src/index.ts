@@ -20,3 +20,5 @@ export * from './entities/contract-standard.entity';
 export * from './entities/protocol-contract.entity';
 export * from './entities/dex-pair.entity';
 export * from './entities/dex-swap.entity';
+export * from './entities/token-approval.entity';
+export * from './entities/token-allowance.entity';

@@ -13,12 +13,15 @@ import { Erc1155BalanceEntity } from '@app/db/entities/erc1155-balance.entity';
 import { DexSwapEntity } from '@app/db/entities/dex-swap.entity';
 import { DexPairEntity } from '@app/db/entities/dex-pair.entity';
 import { ProtocolContractEntity } from '@app/db/entities/protocol-contract.entity';
+import { TokenApprovalEntity } from '@app/db/entities/token-approval.entity';
+import { TokenAllowanceEntity } from '@app/db/entities/token-allowance.entity';
 import { BackfillJobEntity, BackfillJobStatus } from '@app/db/entities/backfill-job.entity';
 import { BackfillJobService } from './backfill-job.service';
 import { normalizeAddress, normalizeHash, MetricsService } from '@app/common';
 import { withRetry } from '@app/common/utils/retry';
 import {
   ERC20_TRANSFER_TOPIC,
+  ERC20_APPROVAL_TOPIC,
   ERC1155_TRANSFER_SINGLE_TOPIC,
   ERC1155_TRANSFER_BATCH_TOPIC,
 } from '@app/abi';
@@ -67,6 +70,12 @@ export class BackfillRunnerService {
 
     @InjectRepository(Erc1155BalanceEntity)
     private readonly erc1155Repo: Repository<Erc1155BalanceEntity>,
+
+    @InjectRepository(TokenApprovalEntity)
+    private readonly approvalRepo: Repository<TokenApprovalEntity>,
+
+    @InjectRepository(TokenAllowanceEntity)
+    private readonly allowanceRepo: Repository<TokenAllowanceEntity>,
 
     private readonly jobService: BackfillJobService,
 
@@ -293,6 +302,53 @@ export class BackfillRunnerService {
               .values(transferInserts)
               .orIgnore()
               .execute();
+          }
+
+          // Decode ERC-20 Approval events inline
+          const approvalInserts: Partial<TokenApprovalEntity>[] = [];
+          for (const log of receipt.logs) {
+            const at0 = log.topics[0]?.toLowerCase() ?? null;
+            const at1 = log.topics[1]?.toLowerCase() ?? null;
+            const at2 = log.topics[2]?.toLowerCase() ?? null;
+            const at3 = log.topics[3]?.toLowerCase() ?? null;
+
+            if (at0 === ERC20_APPROVAL_TOPIC && at1 && at2 && !at3) {
+              try {
+                approvalInserts.push({
+                  transactionHash: normalizeHash(log.transactionHash),
+                  blockNumber: String(log.blockNumber),
+                  logIndex: log.logIndex,
+                  tokenAddress: normalizeAddress(log.address),
+                  ownerAddress: topicToAddress(at1),
+                  spenderAddress: topicToAddress(at2),
+                  valueRaw: BigInt(log.data).toString(),
+                });
+              } catch { /* skip */ }
+            }
+          }
+
+          if (approvalInserts.length > 0) {
+            await this.approvalRepo
+              .createQueryBuilder()
+              .insert()
+              .into(TokenApprovalEntity)
+              .values(approvalInserts)
+              .orIgnore()
+              .execute();
+
+            for (const a of approvalInserts) {
+              await this.allowanceRepo.upsert(
+                {
+                  tokenAddress: a.tokenAddress!,
+                  ownerAddress: a.ownerAddress!,
+                  spenderAddress: a.spenderAddress!,
+                  valueRaw: a.valueRaw!,
+                  lastApprovalBlock: a.blockNumber!,
+                  updatedAt: new Date(),
+                },
+                ['tokenAddress', 'ownerAddress', 'spenderAddress'],
+              );
+            }
           }
 
           // Decode ERC-721 transfers inline (4-topic Transfer logs)

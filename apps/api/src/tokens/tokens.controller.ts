@@ -5,6 +5,7 @@ import { PaginationQueryDto, LimitQueryDto } from '../common/pagination';
 import { AddressParamDto } from '../common/params';
 import { TokenContractDto, TokenTransferDto, ApiPaginatedResponse } from '../common/dto';
 import { TokenDetailDto } from './dto/token-detail.dto';
+import { TokenApprovalDto, TokenAllowanceDto } from './dto/token-approval.dto';
 
 @ApiTags('Tokens')
 @Controller('tokens')
@@ -37,5 +38,16 @@ export class TokensController {
       query.limit!,
       query.offset!,
     );
+  }
+
+  @Get(':address/allowance/:owner/:spender')
+  @ApiOperation({ summary: 'Get current allowance for a specific owner/spender pair' })
+  @ApiOkResponse({ type: TokenAllowanceDto })
+  async getAllowance(
+    @Param('address') tokenAddress: string,
+    @Param('owner') ownerAddress: string,
+    @Param('spender') spenderAddress: string,
+  ) {
+    return this.tokensService.getAllowance(tokenAddress, ownerAddress, spenderAddress);
   }
 }

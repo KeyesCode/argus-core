@@ -20,6 +20,8 @@ import { ContractStandardEntity } from './entities/contract-standard.entity';
 import { ProtocolContractEntity } from './entities/protocol-contract.entity';
 import { DexPairEntity } from './entities/dex-pair.entity';
 import { DexSwapEntity } from './entities/dex-swap.entity';
+import { TokenApprovalEntity } from './entities/token-approval.entity';
+import { TokenAllowanceEntity } from './entities/token-allowance.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -50,6 +52,8 @@ export default new DataSource({
     ProtocolContractEntity,
     DexPairEntity,
     DexSwapEntity,
+    TokenApprovalEntity,
+    TokenAllowanceEntity,
   ],
   migrations: ['libs/db/src/migrations/*.ts'],
 });

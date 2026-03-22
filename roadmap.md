@@ -156,14 +156,20 @@ Separate:
 
 ---
 
-## Phase 4 — Tier 1 Protocols (NEXT)
+## Phase 4 — Tier 1 Protocols
 
-### ERC-20 Approvals
-- [ ] Approval(address indexed owner, address indexed spender, uint256 value) decoding
-- [ ] Approval tracking table
-- [ ] Current allowance state table
+### ERC-20 Approvals — COMPLETE
+- [x] Approval(address indexed owner, address indexed spender, uint256 value) decoding
+- [x] token_approvals table (historical events, unique on tx_hash + log_index)
+- [x] token_allowances_current table — PK (token_address, owner_address, spender_address)
+- [x] Erc20ApprovalDecoderService — 3-topic Approval logs, value in data
+- [x] Inline decode in backfill runner
+- [x] Reorg rollback for approvals + allowances
+- [x] API: GET /tokens/:address/allowance/:owner/:spender
+- [x] API: GET /addresses/:address/approvals (paginated history)
+- [x] API: GET /addresses/:address/allowances (current state)
 
-### Uniswap V3
+### Uniswap V3 — NEXT
 - [ ] Swap(address,address,int256,int256,uint160,uint128,int24) decoding
 - [ ] Pool detection via factory
 - [ ] Reuse dex_swaps with protocol_name = UNISWAP_V3
@@ -274,7 +280,7 @@ Do NOT include:
 
 | Difficulty | Protocols |
 |---|---|
-| Easy | ERC-20 Approvals, ERC-4626 |
+| Easy | ~~ERC-20 Approvals~~, ERC-4626 |
 | Medium | Uniswap V3, Seaport, Aave |
 | Hard | Aggregators, Router-based swaps |
 
@@ -285,7 +291,7 @@ Do NOT include:
 1. ~~Core stability (Phase 1)~~ DONE
 2. ~~NFT support (Phase 2)~~ DONE
 3. ~~Protocol framework + Uniswap V2 (Phase 3)~~ DONE
-4. **ERC-20 Approvals + Uniswap V3** ← NEXT
+4. ~~ERC-20 Approvals~~ DONE + **Uniswap V3** ← NEXT
 5. NFT marketplaces
 6. Lending protocols
 7. Bridges

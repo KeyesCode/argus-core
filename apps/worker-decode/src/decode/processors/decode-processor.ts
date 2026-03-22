@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
 import { QUEUE_NAMES } from '@app/queue';
 import { Erc20TransferDecoderService } from '../services/erc20-transfer-decoder.service';
+import { Erc20ApprovalDecoderService } from '../services/erc20-approval-decoder.service';
 import { NftTransferDecoderService } from '../services/nft-transfer-decoder.service';
 import { ProtocolRegistryService } from '../protocols/protocol-registry.service';
 
@@ -12,6 +13,7 @@ export class DecodeProcessor {
 
   constructor(
     private readonly erc20Decoder: Erc20TransferDecoderService,
+    private readonly erc20ApprovalDecoder: Erc20ApprovalDecoderService,
     private readonly nftDecoder: NftTransferDecoderService,
     private readonly protocolRegistry: ProtocolRegistryService,
   ) {}
@@ -21,6 +23,7 @@ export class DecodeProcessor {
     const { blockNumber } = job.data;
     this.logger.debug(`Decoding logs for block ${blockNumber}`);
     await this.erc20Decoder.decodeBlock(blockNumber);
+    await this.erc20ApprovalDecoder.decodeBlock(blockNumber);
     await this.nftDecoder.decodeBlock(blockNumber);
     await this.protocolRegistry.decodeBlock(blockNumber);
   }

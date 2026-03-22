@@ -13,8 +13,11 @@ import { ContractStandardEntity } from '@app/db/entities/contract-standard.entit
 import { DexSwapEntity } from '@app/db/entities/dex-swap.entity';
 import { DexPairEntity } from '@app/db/entities/dex-pair.entity';
 import { ProtocolContractEntity } from '@app/db/entities/protocol-contract.entity';
+import { TokenApprovalEntity } from '@app/db/entities/token-approval.entity';
+import { TokenAllowanceEntity } from '@app/db/entities/token-allowance.entity';
 import { NftReadModelService } from '@app/db/services/nft-read-model.service';
 import { Erc20TransferDecoderService } from './services/erc20-transfer-decoder.service';
+import { Erc20ApprovalDecoderService } from './services/erc20-approval-decoder.service';
 import { NftTransferDecoderService } from './services/nft-transfer-decoder.service';
 import { ContractStandardDetectorService } from './services/contract-standard-detector.service';
 import { TokenMetadataService } from './services/token-metadata.service';
@@ -40,10 +43,13 @@ import { UniswapV2Decoder } from './protocols/uniswap-v2/uniswap-v2.decoder';
       DexSwapEntity,
       DexPairEntity,
       ProtocolContractEntity,
+      TokenApprovalEntity,
+      TokenAllowanceEntity,
     ]),
   ],
   providers: [
     Erc20TransferDecoderService,
+    Erc20ApprovalDecoderService,
     NftTransferDecoderService,
     ContractStandardDetectorService,
     TokenMetadataService,

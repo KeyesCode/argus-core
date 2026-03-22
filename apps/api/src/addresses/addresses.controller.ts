@@ -3,6 +3,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AddressesService } from './addresses.service';
 import { NftsService } from '../nfts/nfts.service';
 import { ProtocolsService } from '../protocols/protocols.service';
+import { TokensService } from '../tokens/tokens.service';
 import { PaginationQueryDto, CursorQueryDto, LimitQueryDto } from '../common/pagination';
 import { AddressParamDto } from '../common/params';
 import { TransactionDto, TokenTransferDto, Erc721OwnershipDto, NftTransferDto, ApiPaginatedResponse, ApiCursorPaginatedResponse } from '../common/dto';
@@ -15,6 +16,7 @@ export class AddressesController {
     private readonly addressesService: AddressesService,
     private readonly nftsService: NftsService,
     private readonly protocolsService: ProtocolsService,
+    private readonly tokensService: TokensService,
   ) {}
 
   @Get(':address')
@@ -94,5 +96,23 @@ export class AddressesController {
       query.limit!,
       query.cursor,
     );
+  }
+
+  @Get(':address/approvals')
+  @ApiOperation({ summary: 'Get paginated ERC-20 approval history for an address' })
+  async getAddressApprovals(
+    @Param() params: AddressParamDto,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.tokensService.getApprovals(params.address, query.limit!, query.offset!);
+  }
+
+  @Get(':address/allowances')
+  @ApiOperation({ summary: 'Get current token allowances granted by an address' })
+  async getAddressAllowances(
+    @Param() params: AddressParamDto,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.tokensService.getAllowances(params.address, query.limit!, query.offset!);
   }
 }

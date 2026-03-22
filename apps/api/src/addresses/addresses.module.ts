@@ -7,12 +7,14 @@ import { AddressesController } from './addresses.controller';
 import { AddressesService } from './addresses.service';
 import { NftsModule } from '../nfts/nfts.module';
 import { ProtocolsModule } from '../protocols/protocols.module';
+import { TokensModule } from '../tokens/tokens.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([TransactionEntity, TokenTransferEntity, AddressSummaryEntity]),
     NftsModule,
     ProtocolsModule,
+    TokensModule,
   ],
   controllers: [AddressesController],
   providers: [AddressesService],

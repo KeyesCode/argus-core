@@ -16,11 +16,14 @@ import { AddressNftHoldingEntity } from '@app/db/entities/address-nft-holding.en
 import { NftContractStatsEntity } from '@app/db/entities/nft-contract-stats.entity';
 import { DexSwapEntity } from '@app/db/entities/dex-swap.entity';
 import { DexPairEntity } from '@app/db/entities/dex-pair.entity';
+import { TokenApprovalEntity } from '@app/db/entities/token-approval.entity';
+import { TokenAllowanceEntity } from '@app/db/entities/token-allowance.entity';
 import { BlockSyncService } from '../apps/worker-ingest/src/ingest/services/block-sync.service';
 import { ReceiptSyncService } from '../apps/worker-ingest/src/ingest/services/receipt-sync.service';
 import { CheckpointService } from '../apps/worker-ingest/src/ingest/services/checkpoint.service';
 import { ReorgDetectionService } from '../apps/worker-ingest/src/ingest/services/reorg-detection.service';
 import { Erc20TransferDecoderService } from '../apps/worker-decode/src/decode/services/erc20-transfer-decoder.service';
+import { Erc20ApprovalDecoderService } from '../apps/worker-decode/src/decode/services/erc20-approval-decoder.service';
 import { BackfillJobService } from '../apps/worker-backfill/src/backfill/services/backfill-job.service';
 import { BackfillRunnerService } from '../apps/worker-backfill/src/backfill/services/backfill-runner.service';
 import { TokenMetadataService } from '../apps/worker-decode/src/decode/services/token-metadata.service';
@@ -70,6 +73,9 @@ describe('Phase 1: End-to-end system validation', () => {
   let swapRepo: Repository<DexSwapEntity>;
   let pairRepo: Repository<DexPairEntity>;
   let protocolRegistry: ProtocolRegistryService;
+  let approvalRepo: Repository<TokenApprovalEntity>;
+  let allowanceRepo: Repository<TokenAllowanceEntity>;
+  let approvalDecoder: Erc20ApprovalDecoderService;
 
   let blockSyncService: BlockSyncService;
   let receiptSyncService: ReceiptSyncService;
@@ -101,6 +107,7 @@ describe('Phase 1: End-to-end system validation', () => {
         CheckpointService,
         ReorgDetectionService,
         Erc20TransferDecoderService,
+        Erc20ApprovalDecoderService,
         BackfillJobService,
         BackfillRunnerService,
         TokenMetadataService,
@@ -150,12 +157,15 @@ describe('Phase 1: End-to-end system validation', () => {
     statsRepo = module.get(getRepositoryToken(NftContractStatsEntity));
     swapRepo = module.get(getRepositoryToken(DexSwapEntity));
     pairRepo = module.get(getRepositoryToken(DexPairEntity));
+    approvalRepo = module.get(getRepositoryToken(TokenApprovalEntity));
+    allowanceRepo = module.get(getRepositoryToken(TokenAllowanceEntity));
 
     blockSyncService = module.get(BlockSyncService);
     receiptSyncService = module.get(ReceiptSyncService);
     checkpointService = module.get(CheckpointService);
     reorgDetectionService = module.get(ReorgDetectionService);
     erc20Decoder = module.get(Erc20TransferDecoderService);
+    approvalDecoder = module.get(Erc20ApprovalDecoderService);
     nftDecoder = module.get(NftTransferDecoderService);
     backfillJobService = module.get(BackfillJobService);
     backfillRunnerService = module.get(BackfillRunnerService);
@@ -1416,6 +1426,84 @@ describe('Phase 1: End-to-end system validation', () => {
       const remaining = await swapRepo.find();
       for (const swap of remaining) {
         expect(Number(swap.blockNumber)).toBeLessThan(5);
+      }
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // 15. ERC-20 Approval decoding
+  // ────────────────────────────────────────────────────────────────
+  describe('ERC-20 Approval decoding', () => {
+    beforeEach(async () => {
+      await blockSyncService.syncNextBatch(10);
+      for (let bn = 1; bn <= 10; bn++) {
+        await receiptSyncService.syncReceiptsForBlock(bn);
+      }
+    });
+
+    it('should decode Approval events into token_approvals', async () => {
+      let totalDecoded = 0;
+      for (let bn = 1; bn <= 10; bn++) {
+        totalDecoded += await approvalDecoder.decodeBlock(bn);
+      }
+
+      const approvals = await approvalRepo.find();
+      expect(approvals.length).toBe(totalDecoded);
+      expect(approvals.length).toBeGreaterThan(0);
+
+      for (const approval of approvals) {
+        expect(approval.ownerAddress).toMatch(/^0x[0-9a-f]{40}$/);
+        expect(approval.spenderAddress).toMatch(/^0x[0-9a-f]{40}$/);
+        expect(approval.tokenAddress).toMatch(/^0x[0-9a-f]{40}$/);
+        expect(BigInt(approval.valueRaw)).toBeGreaterThanOrEqual(0n);
+      }
+    });
+
+    it('should update token_allowances_current with latest value', async () => {
+      for (let bn = 1; bn <= 10; bn++) {
+        await approvalDecoder.decodeBlock(bn);
+      }
+
+      const allowances = await allowanceRepo.find();
+      expect(allowances.length).toBeGreaterThan(0);
+
+      for (const allowance of allowances) {
+        expect(allowance.ownerAddress).toMatch(/^0x[0-9a-f]{40}$/);
+        expect(allowance.spenderAddress).toMatch(/^0x[0-9a-f]{40}$/);
+        expect(BigInt(allowance.lastApprovalBlock)).toBeGreaterThan(0n);
+      }
+    });
+
+    it('should be idempotent — no duplicate approvals on re-decode', async () => {
+      for (let bn = 1; bn <= 5; bn++) {
+        await approvalDecoder.decodeBlock(bn);
+      }
+      const countBefore = await approvalRepo.count();
+
+      for (let bn = 1; bn <= 5; bn++) {
+        await approvalDecoder.decodeBlock(bn);
+      }
+      const countAfter = await approvalRepo.count();
+
+      expect(countAfter).toBe(countBefore);
+    });
+
+    it('should rollback approvals and allowances on reorg', async () => {
+      for (let bn = 1; bn <= 10; bn++) {
+        await approvalDecoder.decodeBlock(bn);
+      }
+
+      const beforeApprovals = await approvalRepo.count();
+      expect(beforeApprovals).toBeGreaterThan(0);
+
+      await reorgDetectionService.rollback(5, 6);
+
+      const afterApprovals = await approvalRepo.count();
+      expect(afterApprovals).toBeLessThan(beforeApprovals);
+
+      const remaining = await approvalRepo.find();
+      for (const a of remaining) {
+        expect(Number(a.blockNumber)).toBeLessThanOrEqual(5);
       }
     });
   });

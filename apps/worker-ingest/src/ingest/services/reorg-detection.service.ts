@@ -182,6 +182,16 @@ export class ReorgDetectionService {
       .where('"block_number" >= :from', { from: String(rollbackFrom) })
       .execute();
 
+    // Delete rolled-back approvals and recompute allowances
+    await this.dataSource.query(
+      `DELETE FROM "token_approvals" WHERE "block_number" >= $1`,
+      [String(rollbackFrom)],
+    );
+    await this.dataSource.query(
+      `DELETE FROM "token_allowances_current" WHERE "last_approval_block" >= $1`,
+      [String(rollbackFrom)],
+    );
+
     // Delete rolled-back protocol-derived data (dex_swaps etc.)
     await this.dataSource.query(
       `DELETE FROM "dex_swaps" WHERE "block_number" >= $1`,

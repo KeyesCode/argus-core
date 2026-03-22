@@ -14,6 +14,8 @@ import { Erc1155BalanceEntity } from '@app/db/entities/erc1155-balance.entity';
 import { DexSwapEntity } from '@app/db/entities/dex-swap.entity';
 import { DexPairEntity } from '@app/db/entities/dex-pair.entity';
 import { ProtocolContractEntity } from '@app/db/entities/protocol-contract.entity';
+import { TokenApprovalEntity } from '@app/db/entities/token-approval.entity';
+import { TokenAllowanceEntity } from '@app/db/entities/token-allowance.entity';
 import { SummaryService } from '@app/db/services/summary.service';
 import { PartitionManagerService } from '@app/db/services/partition-manager.service';
 import { BackfillJobService } from './services/backfill-job.service';
@@ -37,6 +39,8 @@ import { RangePlannerService } from './services/range-planner.service';
       DexSwapEntity,
       DexPairEntity,
       ProtocolContractEntity,
+      TokenApprovalEntity,
+      TokenAllowanceEntity,
     ]),
   ],
   providers: [BackfillJobService, BackfillRunnerService, RangePlannerService, SummaryService, PartitionManagerService],
