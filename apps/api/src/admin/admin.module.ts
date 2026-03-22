@@ -9,6 +9,7 @@ import { TokenTransferEntity } from '@app/db/entities/token-transfer.entity';
 import { ReorgEventEntity } from '@app/db/entities/reorg-event.entity';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { NftReconciliationService } from '@app/db/services/nft-reconciliation.service';
 
 @Module({
   imports: [
@@ -23,6 +24,6 @@ import { AdminService } from './admin.service';
     ]),
   ],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService, NftReconciliationService],
 })
 export class AdminModule {}

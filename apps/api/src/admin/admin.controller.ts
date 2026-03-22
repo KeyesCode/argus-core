@@ -1,17 +1,22 @@
 import { Controller, Get, Post, Body, Param, Patch, Query, ParseIntPipe } from '@nestjs/common';
 import { ApiOkResponse, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { NftReconciliationService } from '@app/db/services/nft-reconciliation.service';
 import { LimitQueryDto } from '../common/pagination';
 import { CreateBackfillJobDto } from './dto/create-backfill-job.dto';
 import { AdminStatusDto } from './dto/admin-status.dto';
 import { AdminMetricsDto } from './dto/admin-metrics.dto';
 import { BackfillJobDto } from './dto/backfill-job.dto';
 import { ReorgEventDto } from './dto/reorg-event.dto';
+import { NftReconcileReportDto, NftValidationReportDto, NftRebuildResultDto } from './dto/nft-reconciliation.dto';
 
 @ApiTags('Admin')
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly reconciliation: NftReconciliationService,
+  ) {}
 
   @Get('status')
   @ApiOperation({ summary: 'Get indexer status overview' })
@@ -68,5 +73,51 @@ export class AdminController {
   @ApiOkResponse({ type: [ReorgEventDto] })
   async getReorgEvents(@Query() query: LimitQueryDto) {
     return this.adminService.getReorgEvents(query.limit!);
+  }
+
+  // ── NFT Reconciliation ──
+
+  @Post('nfts/reconcile')
+  @ApiOperation({ summary: 'Full NFT reconcile: rebuild all derived tables + validate' })
+  @ApiOkResponse({ type: NftReconcileReportDto })
+  async nftReconcile(@Query('dryRun') dryRun?: string) {
+    return this.reconciliation.fullReconcile(undefined, dryRun === 'true');
+  }
+
+  @Post('nfts/recompute-contract/:address')
+  @ApiOperation({ summary: 'Recompute stats and rebuild for one NFT contract' })
+  @ApiOkResponse({ type: NftReconcileReportDto })
+  async nftRecomputeContract(@Param('address') address: string) {
+    return this.reconciliation.fullReconcile(address.toLowerCase());
+  }
+
+  @Post('nfts/rebuild-holdings')
+  @ApiOperation({ summary: 'Rebuild address_nft_holdings from current-state tables' })
+  @ApiOkResponse({ type: NftRebuildResultDto })
+  async nftRebuildHoldings() {
+    return this.reconciliation.rebuildAddressHoldings();
+  }
+
+  @Post('nfts/rebuild-current-state')
+  @ApiOperation({ summary: 'Rebuild erc721_ownership + erc1155_balances from nft_transfers' })
+  @ApiOkResponse({ type: [NftRebuildResultDto] })
+  async nftRebuildCurrentState() {
+    const erc721 = await this.reconciliation.rebuildErc721Ownership();
+    const erc1155 = await this.reconciliation.rebuildErc1155Balances();
+    return [erc721, erc1155];
+  }
+
+  @Get('nfts/validate')
+  @ApiOperation({ summary: 'Validate all NFT derived tables (read-only)' })
+  @ApiOkResponse({ type: NftValidationReportDto })
+  async nftValidate() {
+    return this.reconciliation.validate();
+  }
+
+  @Get('nfts/validate/:address')
+  @ApiOperation({ summary: 'Validate NFT data for one contract (read-only)' })
+  @ApiOkResponse({ type: NftValidationReportDto })
+  async nftValidateContract(@Param('address') address: string) {
+    return this.reconciliation.validate(address.toLowerCase());
   }
 }

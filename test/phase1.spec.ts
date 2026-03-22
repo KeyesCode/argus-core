@@ -26,6 +26,7 @@ import { NftTransferDecoderService } from '../apps/worker-decode/src/decode/serv
 import { ContractStandardDetectorService } from '../apps/worker-decode/src/decode/services/contract-standard-detector.service';
 import { NftMetadataService } from '../apps/worker-decode/src/decode/services/nft-metadata.service';
 import { NftReadModelService } from '../libs/db/src/services/nft-read-model.service';
+import { NftReconciliationService } from '../libs/db/src/services/nft-reconciliation.service';
 import { SummaryService } from '../libs/db/src/services/summary.service';
 import { PartitionManagerService } from '../libs/db/src/services/partition-manager.service';
 import { BlocksController } from '../apps/api/src/blocks/blocks.controller';
@@ -71,6 +72,7 @@ describe('Phase 1: End-to-end system validation', () => {
   let backfillJobService: BackfillJobService;
   let backfillRunnerService: BackfillRunnerService;
   let metricsService: MetricsService;
+  let reconciliationService: NftReconciliationService;
 
   let blocksController: BlocksController;
   let transactionsController: TransactionsController;
@@ -98,6 +100,7 @@ describe('Phase 1: End-to-end system validation', () => {
         ContractStandardDetectorService,
         NftMetadataService,
         NftReadModelService,
+        NftReconciliationService,
         SummaryService,
         PartitionManagerService,
         // API services
@@ -144,6 +147,7 @@ describe('Phase 1: End-to-end system validation', () => {
     backfillJobService = module.get(BackfillJobService);
     backfillRunnerService = module.get(BackfillRunnerService);
     metricsService = module.get(MetricsService);
+    reconciliationService = module.get(NftReconciliationService);
 
     blocksController = module.get(BlocksController);
     transactionsController = module.get(TransactionsController);
@@ -1142,6 +1146,138 @@ describe('Phase 1: End-to-end system validation', () => {
         expect(holding).not.toBeNull();
         expect(holding!.quantity).toBe('1');
       }
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // 13. NFT reconciliation and drift repair
+  // ────────────────────────────────────────────────────────────────
+  describe('NFT reconciliation', () => {
+    beforeEach(async () => {
+      await blockSyncService.syncNextBatch(15);
+      for (let bn = 1; bn <= 15; bn++) {
+        await receiptSyncService.syncReceiptsForBlock(bn);
+        await nftDecoder.decodeBlock(bn);
+      }
+    });
+
+    it('should validate with no issues when state is correct', async () => {
+      const report = await reconciliationService.validate();
+
+      expect(report.checkedContracts).toBeGreaterThan(0);
+      expect(report.checkedTokens).toBeGreaterThan(0);
+      expect(report.issuesFound).toBe(0);
+      expect(report.issues).toHaveLength(0);
+    });
+
+    it('should detect ERC-721 ownership drift after manual corruption', async () => {
+      // Corrupt: delete an ownership row
+      await erc721Repo.createQueryBuilder().delete().execute();
+
+      const report = await reconciliationService.validate();
+
+      expect(report.issuesFound).toBeGreaterThan(0);
+      const ownerIssues = report.issues.filter(
+        (i) => i.type === 'ERC721_MISSING_OWNER',
+      );
+      expect(ownerIssues.length).toBeGreaterThan(0);
+    });
+
+    it('should detect holdings drift after manual corruption', async () => {
+      // Corrupt: delete all holdings
+      await holdingRepo.createQueryBuilder().delete().execute();
+
+      const report = await reconciliationService.validate();
+
+      const holdingIssues = report.issues.filter(
+        (i) => i.type === 'HOLDING_MISMATCH',
+      );
+      expect(holdingIssues.length).toBeGreaterThan(0);
+    });
+
+    it('should detect contract stats drift', async () => {
+      // Corrupt: zero out stats
+      await statsRepo.createQueryBuilder().delete().execute();
+
+      const report = await reconciliationService.validate();
+
+      const statsIssues = report.issues.filter(
+        (i) => i.type === 'CONTRACT_STATS_MISMATCH',
+      );
+      expect(statsIssues.length).toBeGreaterThan(0);
+    });
+
+    it('should rebuild erc721_ownership from nft_transfers', async () => {
+      // Corrupt ownership
+      await erc721Repo.createQueryBuilder().delete().execute();
+
+      // Rebuild
+      const result = await reconciliationService.rebuildErc721Ownership();
+      expect(result.rowsInserted).toBeGreaterThan(0);
+
+      // Validate — should be clean now
+      const report = await reconciliationService.validate();
+      const ownerIssues = report.issues.filter(
+        (i) => i.type === 'ERC721_MISSING_OWNER' || i.type === 'ERC721_OWNER_MISMATCH',
+      );
+      expect(ownerIssues.length).toBe(0);
+    });
+
+    it('should rebuild address_nft_holdings from current-state tables', async () => {
+      // Corrupt holdings
+      await holdingRepo.createQueryBuilder().delete().execute();
+
+      // Rebuild
+      const result = await reconciliationService.rebuildAddressHoldings();
+      expect(result.rowsInserted).toBeGreaterThan(0);
+
+      // Validate — holdings should match ownership
+      const report = await reconciliationService.validate();
+      const holdingIssues = report.issues.filter(
+        (i) => i.type === 'HOLDING_MISMATCH',
+      );
+      expect(holdingIssues.length).toBe(0);
+    });
+
+    it('should run fullReconcile and produce clean validation', async () => {
+      // Corrupt everything
+      await erc721Repo.createQueryBuilder().delete().execute();
+      await erc1155Repo.createQueryBuilder().delete().execute();
+      await holdingRepo.createQueryBuilder().delete().execute();
+      await statsRepo.createQueryBuilder().delete().execute();
+
+      // Full reconcile
+      const report = await reconciliationService.fullReconcile();
+
+      expect(report.rebuilds.length).toBe(4);
+      expect(report.validation.issuesFound).toBe(0);
+      expect(report.totalDurationMs).toBeGreaterThan(0);
+
+      // Verify data was actually rebuilt
+      const ownershipCount = await erc721Repo.count();
+      expect(ownershipCount).toBeGreaterThan(0);
+
+      const holdingsCount = await holdingRepo.count();
+      expect(holdingsCount).toBeGreaterThan(0);
+
+      const statsCount = await statsRepo.count();
+      expect(statsCount).toBeGreaterThan(0);
+    });
+
+    it('should not mutate data in dryRun mode', async () => {
+      // Corrupt ownership
+      await erc721Repo.createQueryBuilder().delete().execute();
+
+      // Dry run
+      const report = await reconciliationService.fullReconcile(undefined, true);
+
+      // Should have found issues but NOT rebuilt
+      expect(report.rebuilds.length).toBe(0);
+      expect(report.validation.issuesFound).toBeGreaterThan(0);
+
+      // Data should still be corrupted
+      const ownershipCount = await erc721Repo.count();
+      expect(ownershipCount).toBe(0);
     });
   });
 });
