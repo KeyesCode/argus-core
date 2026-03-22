@@ -124,4 +124,13 @@ export class AddressesController {
   ) {
     return this.nftsService.getAddressSales(params.address, query.limit!, query.cursor);
   }
+
+  @Get(':address/lending')
+  @ApiOperation({ summary: 'Get cursor-paginated lending activity for an address' })
+  async getAddressLending(
+    @Param() params: AddressParamDto,
+    @Query() query: CursorQueryDto,
+  ) {
+    return this.protocolsService.getAddressLendingEvents(params.address, query.limit!, query.cursor);
+  }
 }

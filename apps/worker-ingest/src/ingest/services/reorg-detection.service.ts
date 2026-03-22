@@ -188,6 +188,12 @@ export class ReorgDetectionService {
       [String(rollbackFrom)],
     );
 
+    // Delete rolled-back lending events
+    await this.dataSource.query(
+      `DELETE FROM "lending_events" WHERE "block_number" >= $1`,
+      [String(rollbackFrom)],
+    );
+
     // Delete rolled-back approvals and recompute allowances
     await this.dataSource.query(
       `DELETE FROM "token_approvals" WHERE "block_number" >= $1`,

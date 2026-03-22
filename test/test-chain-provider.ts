@@ -14,6 +14,7 @@ const UNISWAP_V2_SWAP_TOPIC = '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d
 const UNISWAP_V3_SWAP_TOPIC = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
 const SEAPORT_ORDER_FULFILLED_TOPIC = '0x9d9af8e38d66c62e2c12f0225249fd9d721c54b83f48d9352c97c6cacdcb6f31';
 const BLUR_ORDERS_MATCHED_TOPIC = '0xccba862546b05c8c66e45ac1e0eb064e777f59aee70b88930f052da1829fcfd7';
+const AAVE_V2_DEPOSIT_TOPIC = '0xde6857219544bb5b7746f48ed30be6386fefc61b2f864cacf559893bf50fd951';
 
 const BLUR_ORDER_TUPLE = 'tuple(address,uint8,address,address,uint256,uint256,address,uint256,uint256,uint256,tuple(uint16,address)[],uint256,bytes)';
 const BLUR_INPUT_TUPLE = 'tuple(uint8,uint256,uint256,uint256,bool,address,bytes)';
@@ -385,6 +386,31 @@ export class TestChainProvider implements ChainProvider {
         logIndex: logs.length,
         data: blurData,
         topics: [BLUR_ORDERS_MATCHED_TOPIC, makerPadded, takerPadded],
+        removed: false,
+      });
+    }
+
+    // Aave V2 Deposit log on blocks divisible by 9, tx index 0
+    const hasAaveDeposit = blockNumber % 9 === 0 && tx.transactionIndex === 0;
+    if (hasAaveDeposit) {
+      const aaveLendingPool = '0x7d2768de32b0b80b7a3454c06bdac94a69ddc7a9';
+      const reservePadded = '0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'; // USDC
+      const onBehalfOfPadded = `0x000000000000000000000000${tx.from.slice(2)}`;
+      const referralPadded = `0x${'00'.repeat(31)}00`; // referral = 0
+      // Data: address user, uint256 amount
+      const aaveData = AbiCoder.defaultAbiCoder().encode(
+        ['address', 'uint256'],
+        [tx.from, BigInt('5000000000')], // 5000 USDC (6 decimals)
+      );
+
+      logs.push({
+        address: aaveLendingPool,
+        blockNumber,
+        transactionHash: tx.hash,
+        transactionIndex: tx.transactionIndex,
+        logIndex: logs.length,
+        data: aaveData,
+        topics: [AAVE_V2_DEPOSIT_TOPIC, reservePadded, onBehalfOfPadded, referralPadded],
         removed: false,
       });
     }

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DexSwapEntity } from '@app/db/entities/dex-swap.entity';
 import { DexPairEntity } from '@app/db/entities/dex-pair.entity';
+import { LendingEventEntity } from '@app/db/entities/lending-event.entity';
 import {
   CursorPaginatedResponse,
   parseCursor,
@@ -17,6 +18,9 @@ export class ProtocolsService {
 
     @InjectRepository(DexPairEntity)
     private readonly pairRepo: Repository<DexPairEntity>,
+
+    @InjectRepository(LendingEventEntity)
+    private readonly lendingRepo: Repository<LendingEventEntity>,
   ) {}
 
   async getSwaps(
@@ -104,5 +108,74 @@ export class ProtocolsService {
     return this.pairRepo.findOne({
       where: { pairAddress: pairAddress.toLowerCase() },
     });
+  }
+
+  async getLendingEvents(
+    limit: number,
+    cursor?: string,
+    filters?: { protocolName?: string; eventType?: string; assetAddress?: string },
+  ): Promise<CursorPaginatedResponse<LendingEventEntity>> {
+    const parsed = parseCursor(cursor);
+
+    const qb = this.lendingRepo.createQueryBuilder('l')
+      .orderBy('l.block_number', 'DESC')
+      .addOrderBy('l.log_index', 'DESC')
+      .take(limit + 1);
+
+    if (filters?.protocolName) {
+      qb.andWhere('l.protocol_name = :proto', { proto: filters.protocolName });
+    }
+    if (filters?.eventType) {
+      qb.andWhere('l.event_type = :type', { type: filters.eventType });
+    }
+    if (filters?.assetAddress) {
+      qb.andWhere('l.asset_address = :asset', { asset: filters.assetAddress.toLowerCase() });
+    }
+    if (parsed) {
+      qb.andWhere(
+        '(l.block_number < :bn OR (l.block_number = :bn AND l.log_index < :li))',
+        { bn: parsed.blockNumber, li: parsed.logIndex },
+      );
+    }
+
+    const results = await qb.getMany();
+    const hasMore = results.length > limit;
+    const items = hasMore ? results.slice(0, limit) : results;
+    const nextCursor = hasMore
+      ? buildCursor(items[items.length - 1].blockNumber, items[items.length - 1].logIndex)
+      : null;
+
+    return { items, nextCursor, limit };
+  }
+
+  async getAddressLendingEvents(
+    address: string,
+    limit: number,
+    cursor?: string,
+  ): Promise<CursorPaginatedResponse<LendingEventEntity>> {
+    const normalized = address.toLowerCase();
+    const parsed = parseCursor(cursor);
+
+    const qb = this.lendingRepo.createQueryBuilder('l')
+      .where('(l.user_address = :addr OR l.on_behalf_of = :addr OR l.liquidator_address = :addr)', { addr: normalized })
+      .orderBy('l.block_number', 'DESC')
+      .addOrderBy('l.log_index', 'DESC')
+      .take(limit + 1);
+
+    if (parsed) {
+      qb.andWhere(
+        '(l.block_number < :bn OR (l.block_number = :bn AND l.log_index < :li))',
+        { bn: parsed.blockNumber, li: parsed.logIndex },
+      );
+    }
+
+    const results = await qb.getMany();
+    const hasMore = results.length > limit;
+    const items = hasMore ? results.slice(0, limit) : results;
+    const nextCursor = hasMore
+      ? buildCursor(items[items.length - 1].blockNumber, items[items.length - 1].logIndex)
+      : null;
+
+    return { items, nextCursor, limit };
   }
 }

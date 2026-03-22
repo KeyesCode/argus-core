@@ -202,12 +202,18 @@ Separate:
 
 ## Phase 5 — Tier 2 Protocols
 
-### Lending: Aave
-- [ ] Deposit / Withdraw
-- [ ] Borrow / Repay
-- [ ] Liquidations
+### Lending: Aave — COMPLETE
+- [x] lending_events table (generic, reusable for Compound/Aave/etc.)
+- [x] AaveDecoder — Deposit/Supply, Withdraw, Borrow, Repay, LiquidationCall
+- [x] Supports both Aave V2 (Deposit) and V3 (Supply) event signatures
+- [x] Liquidation decoding with collateralAsset, debtToCover, liquidatedCollateral, liquidator
+- [x] Self-registering via ProtocolDecoder + onModuleInit
+- [x] Inline in backfill via protocol registry
+- [x] Reorg rollback
+- [x] API: GET /protocols/lending/events?protocolName=&eventType=&assetAddress= (cursor paginated)
+- [x] API: GET /addresses/:address/lending (cursor paginated)
 
-### Lending: Compound
+### Lending: Compound — NEXT
 - [ ] Mint / Redeem
 - [ ] Borrow / Repay
 
@@ -299,7 +305,7 @@ Do NOT include:
 | Difficulty | Protocols |
 |---|---|
 | Easy | ~~ERC-20 Approvals~~, ERC-4626 |
-| Medium | Uniswap V3, Seaport, Aave |
+| Medium | ~~Uniswap V3~~, ~~Seaport~~, ~~Aave~~ |
 | Hard | Aggregators, Router-based swaps |
 
 ---
@@ -311,6 +317,6 @@ Do NOT include:
 3. ~~Protocol framework + Uniswap V2 (Phase 3)~~ DONE
 4. ~~ERC-20 Approvals + Uniswap V3~~ DONE
 5. ~~NFT marketplaces (Seaport + Blur)~~ DONE
-6. Lending protocols
+6. ~~Lending: Aave~~ DONE
 7. Bridges
 8. Advanced protocols

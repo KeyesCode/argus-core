@@ -17,6 +17,7 @@ import { NftContractStatsEntity } from '@app/db/entities/nft-contract-stats.enti
 import { DexSwapEntity } from '@app/db/entities/dex-swap.entity';
 import { DexPairEntity } from '@app/db/entities/dex-pair.entity';
 import { NftSaleEntity } from '@app/db/entities/nft-sale.entity';
+import { LendingEventEntity } from '@app/db/entities/lending-event.entity';
 import { TokenApprovalEntity } from '@app/db/entities/token-approval.entity';
 import { TokenAllowanceEntity } from '@app/db/entities/token-allowance.entity';
 import { BlockSyncService } from '../apps/worker-ingest/src/ingest/services/block-sync.service';
@@ -40,6 +41,7 @@ import { UniswapV2Decoder } from '../apps/worker-decode/src/decode/protocols/uni
 import { UniswapV3Decoder } from '../apps/worker-decode/src/decode/protocols/uniswap-v3/uniswap-v3.decoder';
 import { SeaportDecoder } from '../apps/worker-decode/src/decode/protocols/seaport/seaport.decoder';
 import { BlurDecoder } from '../apps/worker-decode/src/decode/protocols/blur/blur.decoder';
+import { AaveDecoder } from '../apps/worker-decode/src/decode/protocols/aave/aave.decoder';
 import { BlocksController } from '../apps/api/src/blocks/blocks.controller';
 import { BlocksService } from '../apps/api/src/blocks/blocks.service';
 import { TransactionsController } from '../apps/api/src/transactions/transactions.controller';
@@ -81,6 +83,7 @@ describe('Phase 1: End-to-end system validation', () => {
   let allowanceRepo: Repository<TokenAllowanceEntity>;
   let approvalDecoder: Erc20ApprovalDecoderService;
   let saleRepo: Repository<NftSaleEntity>;
+  let lendingRepo: Repository<LendingEventEntity>;
 
   let blockSyncService: BlockSyncService;
   let receiptSyncService: ReceiptSyncService;
@@ -126,6 +129,7 @@ describe('Phase 1: End-to-end system validation', () => {
         UniswapV3Decoder,
         SeaportDecoder,
         BlurDecoder,
+        AaveDecoder,
         SummaryService,
         PartitionManagerService,
         // API services
@@ -168,6 +172,7 @@ describe('Phase 1: End-to-end system validation', () => {
     approvalRepo = module.get(getRepositoryToken(TokenApprovalEntity));
     allowanceRepo = module.get(getRepositoryToken(TokenAllowanceEntity));
     saleRepo = module.get(getRepositoryToken(NftSaleEntity));
+    lendingRepo = module.get(getRepositoryToken(LendingEventEntity));
 
     blockSyncService = module.get(BlockSyncService);
     receiptSyncService = module.get(ReceiptSyncService);
@@ -187,6 +192,7 @@ describe('Phase 1: End-to-end system validation', () => {
     module.get(UniswapV3Decoder).onModuleInit();
     module.get(SeaportDecoder).onModuleInit();
     module.get(BlurDecoder).onModuleInit();
+    module.get(AaveDecoder).onModuleInit();
 
     blocksController = module.get(BlocksController);
     transactionsController = module.get(TransactionsController);
@@ -1725,6 +1731,66 @@ describe('Phase 1: End-to-end system validation', () => {
 
       expect(seaportCount).toBeGreaterThan(0);
       expect(blurCount).toBeGreaterThan(0);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // 19. Aave lending event decoding
+  // ────────────────────────────────────────────────────────────────
+  describe('Aave lending decoding', () => {
+    beforeEach(async () => {
+      // Block 9 has Aave Deposit log
+      await blockSyncService.syncNextBatch(9);
+      for (let bn = 1; bn <= 9; bn++) {
+        await receiptSyncService.syncReceiptsForBlock(bn);
+      }
+    });
+
+    it('should decode Aave Deposit events into lending_events', async () => {
+      for (let bn = 1; bn <= 9; bn++) {
+        await protocolRegistry.decodeBlock(bn);
+      }
+
+      const lendingEvents = await lendingRepo.find({
+        where: { protocolName: 'AAVE' },
+      });
+      expect(lendingEvents.length).toBeGreaterThan(0);
+
+      for (const event of lendingEvents) {
+        expect(event.protocolName).toBe('AAVE');
+        expect(event.eventType).toBe('DEPOSIT');
+        expect(event.assetAddress).toBe('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'); // USDC
+        expect(event.userAddress).toMatch(/^0x[0-9a-f]{40}$/);
+        expect(BigInt(event.amount)).toBe(5000000000n); // 5000 USDC
+      }
+    });
+
+    it('should be idempotent for lending events', async () => {
+      for (let bn = 1; bn <= 9; bn++) {
+        await protocolRegistry.decodeBlock(bn);
+      }
+      const before = await lendingRepo.count();
+
+      for (let bn = 1; bn <= 9; bn++) {
+        await protocolRegistry.decodeBlock(bn);
+      }
+      const after = await lendingRepo.count();
+
+      expect(after).toBe(before);
+    });
+
+    it('should rollback lending events on reorg', async () => {
+      for (let bn = 1; bn <= 9; bn++) {
+        await protocolRegistry.decodeBlock(bn);
+      }
+
+      const before = await lendingRepo.count();
+      expect(before).toBeGreaterThan(0);
+
+      await reorgDetectionService.rollback(8, 9);
+
+      const after = await lendingRepo.count();
+      expect(after).toBe(0); // Only block 9 had Aave events
     });
   });
 });

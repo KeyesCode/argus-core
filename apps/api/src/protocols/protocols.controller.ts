@@ -46,4 +46,19 @@ export class ProtocolsController {
   async getPair(@Param('address') address: string) {
     return this.protocolsService.getPair(address);
   }
+
+  @Get('lending/events')
+  @ApiOperation({ summary: 'Get cursor-paginated lending events (Aave, Compound, etc.)' })
+  async getLendingEvents(
+    @Query() query: CursorQueryDto,
+    @Query('protocolName') protocolName?: string,
+    @Query('eventType') eventType?: string,
+    @Query('assetAddress') assetAddress?: string,
+  ) {
+    return this.protocolsService.getLendingEvents(
+      query.limit!,
+      query.cursor,
+      { protocolName, eventType, assetAddress },
+    );
+  }
 }
