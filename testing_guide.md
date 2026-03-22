@@ -27,24 +27,24 @@ yarn test:integration
 
 ### Test categories
 
-| Category | Tests | What's covered |
-|----------|-------|----------------|
-| Block ingestion | 5 | Blocks, txs, parent hash chain, normalization, queue integration |
-| ERC-20 decoding | 2 | Transfer events decoded, non-Transfer logs skipped |
-| Checkpoint resume | 3 | Created, resumes correctly, per-block granularity |
-| Idempotency | 5 | No duplicates for blocks, txs, receipts, logs, transfers |
-| Backfill lifecycle | 4 | Create, run, pause/resume, multi-batch completion |
-| Search | 5 | Block by number/hash, tx hash, address, unknown query |
-| API pagination | 6 | Limit/offset, max limit, token transfers, blocks, tx detail |
-| Reorg detection | 7 | No false positive, detection, rollback, checkpoint reset, audit, re-sync |
-| Metrics | 3 | Counters, gauges, rate tracking |
-| ERC-721 decoding | 6 | Decode, no misclassification, ownership, mint, idempotency, reorg |
-| ERC-1155 decoding | 4 | TransferSingle, balances, idempotency, address separation |
-| NFT read models | 4 | Holdings for ERC-721/1155, contract stats, ownership consistency |
-| Reconciliation | 8 | Validate clean state, detect drift, rebuild ownership/holdings/stats, fullReconcile, dryRun |
-| Pagination DTOs | 7 | Defaults, transform, max/min bounds, negative offset |
-| Search classification | 8 | Query routing, lowercase, hex rejection, match returns |
-| Admin state transitions | 6 | Job creation, defaults, pause/resume, string storage |
+| Category                | Tests | What's covered                                                                              |
+| ----------------------- | ----- | ------------------------------------------------------------------------------------------- |
+| Block ingestion         | 5     | Blocks, txs, parent hash chain, normalization, queue integration                            |
+| ERC-20 decoding         | 2     | Transfer events decoded, non-Transfer logs skipped                                          |
+| Checkpoint resume       | 3     | Created, resumes correctly, per-block granularity                                           |
+| Idempotency             | 5     | No duplicates for blocks, txs, receipts, logs, transfers                                    |
+| Backfill lifecycle      | 4     | Create, run, pause/resume, multi-batch completion                                           |
+| Search                  | 5     | Block by number/hash, tx hash, address, unknown query                                       |
+| API pagination          | 6     | Limit/offset, max limit, token transfers, blocks, tx detail                                 |
+| Reorg detection         | 7     | No false positive, detection, rollback, checkpoint reset, audit, re-sync                    |
+| Metrics                 | 3     | Counters, gauges, rate tracking                                                             |
+| ERC-721 decoding        | 6     | Decode, no misclassification, ownership, mint, idempotency, reorg                           |
+| ERC-1155 decoding       | 4     | TransferSingle, balances, idempotency, address separation                                   |
+| NFT read models         | 4     | Holdings for ERC-721/1155, contract stats, ownership consistency                            |
+| Reconciliation          | 8     | Validate clean state, detect drift, rebuild ownership/holdings/stats, fullReconcile, dryRun |
+| Pagination DTOs         | 7     | Defaults, transform, max/min bounds, negative offset                                        |
+| Search classification   | 8     | Query routing, lowercase, hex rejection, match returns                                      |
+| Admin state transitions | 6     | Job creation, defaults, pause/resume, string storage                                        |
 
 ### Test infrastructure
 
@@ -165,6 +165,7 @@ curl -X POST http://localhost:3000/admin/nfts/reconcile | python3 -m json.tool
 ```
 
 The reconciliation report shows:
+
 - How many contracts/tokens were checked
 - Any drift detected (ownership mismatches, holdings gaps, stats errors)
 - What was rebuilt and how many rows were affected
@@ -195,17 +196,18 @@ curl 'http://localhost:3000/search?q=22700001' | python3 -m json.tool
 
 Pick 2-3 transactions and compare against `https://etherscan.io/tx/0x<HASH>`:
 
-| Field | Your API | Etherscan |
-|-------|----------|-----------|
-| `from` | `.transaction.fromAddress` | From |
-| `to` | `.transaction.toAddress` | To |
-| `value` | `.transaction.value` (wei) | Value |
-| `status` | `.receipt.status` (1 = success) | Status |
-| `gasUsed` | `.receipt.gasUsed` | Gas Used |
-| log count | `.logs.length` | Logs count |
-| token transfers | `.tokenTransfers.length` | Token Transfers tab |
+| Field           | Your API                        | Etherscan           |
+| --------------- | ------------------------------- | ------------------- |
+| `from`          | `.transaction.fromAddress`      | From                |
+| `to`            | `.transaction.toAddress`        | To                  |
+| `value`         | `.transaction.value` (wei)      | Value               |
+| `status`        | `.receipt.status` (1 = success) | Status              |
+| `gasUsed`       | `.receipt.gasUsed`              | Gas Used            |
+| log count       | `.logs.length`                  | Logs count          |
+| token transfers | `.tokenTransfers.length`        | Token Transfers tab |
 
 Check:
+
 1. A simple ETH transfer (no logs)
 2. An ERC-20 transfer (USDC/USDT — check token address, from, to, amount)
 3. A contract interaction with multiple logs
@@ -224,11 +226,11 @@ The ingest worker enqueues decode jobs via Redis. The decode worker processes th
 
 ## Which apps to run
 
-| Scenario | Apps needed |
-|----------|------------|
-| Controlled backfill test | `api` + `worker-backfill` |
-| Live chain sync | `api` + `worker-ingest` + `worker-decode` |
-| Full system | `api` + `worker-ingest` + `worker-decode` + `worker-backfill` |
+| Scenario                 | Apps needed                                                   |
+| ------------------------ | ------------------------------------------------------------- |
+| Controlled backfill test | `api` + `worker-backfill`                                     |
+| Live chain sync          | `api` + `worker-ingest` + `worker-decode`                     |
+| Full system              | `api` + `worker-ingest` + `worker-decode` + `worker-backfill` |
 
 The backfill worker handles decoding inline. The ingest worker delegates decoding to the decode worker via Bull queue.
 
@@ -266,24 +268,30 @@ curl -X POST http://localhost:3000/admin/nfts/reconcile | python3 -m json.tool
 ## Troubleshooting
 
 ### `CHAIN_RPC_URL environment variable is required`
+
 The `.env` file isn't being loaded. Make sure `.env` exists in the project root with `CHAIN_RPC_URL` set.
 
 ### `getaddrinfo ENOTFOUND postgres` or `getaddrinfo ENOTFOUND redis`
+
 You're running apps directly on your machine but `DB_HOST` or `REDIS_HOST` is set to Docker container names. Change them to `localhost` in `.env`.
 
 ### `database "blockchain_indexer" does not exist`
+
 ```bash
 docker compose up postgres -d
 docker compose exec postgres psql -U postgres -c "CREATE DATABASE blockchain_indexer;"
 ```
 
 ### `relation "blocks" does not exist`
+
 ```bash
 yarn migration:run
 ```
 
 ### `there is no unique or exclusion constraint matching the ON CONFLICT specification`
+
 This happens if migrations haven't been run after a schema change. Drop and recreate:
+
 ```bash
 docker compose exec postgres psql -U postgres -c "DROP DATABASE blockchain_indexer;"
 docker compose exec postgres psql -U postgres -c "CREATE DATABASE blockchain_indexer;"
@@ -291,13 +299,16 @@ yarn migration:run
 ```
 
 ### RPC rate limiting / timeouts
+
 Reduce batch sizes in `.env`:
+
 ```env
 INGEST_BATCH_SIZE=5
 BACKFILL_BATCH_SIZE=5
 ```
 
 ### Backfill seems slow
+
 Each block requires 1 RPC call + 1 call per transaction for receipts. A block with 200 transactions = 201 RPC calls. At free-tier rate limits, expect ~1-3 blocks per second. 100 blocks completes in 1-5 minutes.
 
 ---
@@ -335,3 +346,11 @@ docker compose exec postgres psql -U postgres -d blockchain_indexer -c "
   DELETE FROM contract_standards;
 "
 ```
+
+# Backfill token contracts first (fast — one RPC call per unique contract)
+
+curl -X POST http://localhost:3000/admin/metadata/backfill-tokens
+
+# Then backfill NFT metadata (slower — RPC + HTTP per token)
+
+curl -X POST http://localhost:3000/admin/metadata/backfill-nfts?limit=500
