@@ -7,11 +7,18 @@ import { TransactionEntity } from '@app/db/entities/transaction.entity';
 import { TransactionReceiptEntity } from '@app/db/entities/transaction-receipt.entity';
 import { LogEntity } from '@app/db/entities/log.entity';
 import { TokenTransferEntity } from '@app/db/entities/token-transfer.entity';
+import { NftTransferEntity } from '@app/db/entities/nft-transfer.entity';
+import { NftOwnershipEntity } from '@app/db/entities/nft-ownership.entity';
 import { BackfillJobEntity, BackfillJobStatus } from '@app/db/entities/backfill-job.entity';
 import { BackfillJobService } from './backfill-job.service';
 import { normalizeAddress, normalizeHash, MetricsService } from '@app/common';
 import { withRetry } from '@app/common/utils/retry';
-import { ERC20_TRANSFER_TOPIC } from '@app/abi';
+import {
+  ERC20_TRANSFER_TOPIC,
+  ERC1155_TRANSFER_SINGLE_TOPIC,
+  ERC1155_TRANSFER_BATCH_TOPIC,
+} from '@app/abi';
+import { AbiCoder } from 'ethers';
 import { topicToAddress } from '@app/common';
 import { SummaryService } from '@app/db/services/summary.service';
 import { PartitionManagerService } from '@app/db/services/partition-manager.service';
@@ -39,6 +46,12 @@ export class BackfillRunnerService {
 
     @InjectRepository(TokenTransferEntity)
     private readonly transferRepo: Repository<TokenTransferEntity>,
+
+    @InjectRepository(NftTransferEntity)
+    private readonly nftTransferRepo: Repository<NftTransferEntity>,
+
+    @InjectRepository(NftOwnershipEntity)
+    private readonly nftOwnershipRepo: Repository<NftOwnershipEntity>,
 
     private readonly jobService: BackfillJobService,
 
@@ -241,6 +254,172 @@ export class BackfillRunnerService {
               .values(transferInserts)
               .orIgnore()
               .execute();
+          }
+
+          // Decode ERC-721 transfers inline (4-topic Transfer logs)
+          const nftInserts: Partial<NftTransferEntity>[] = [];
+          for (const log of receipt.logs) {
+            const t0 = log.topics[0]?.toLowerCase() ?? null;
+            const t1 = log.topics[1]?.toLowerCase() ?? null;
+            const t2 = log.topics[2]?.toLowerCase() ?? null;
+            const t3 = log.topics[3]?.toLowerCase() ?? null;
+
+            // ERC-721 Transfer: 4 topics (topic0 + from + to + tokenId)
+            if (t0 === ERC20_TRANSFER_TOPIC && t1 && t2 && t3) {
+              try {
+                nftInserts.push({
+                  transactionHash: normalizeHash(log.transactionHash),
+                  blockNumber: String(log.blockNumber),
+                  logIndex: log.logIndex,
+                  tokenAddress: normalizeAddress(log.address),
+                  tokenType: 'ERC721',
+                  fromAddress: topicToAddress(t1),
+                  toAddress: topicToAddress(t2),
+                  tokenId: BigInt(t3).toString(),
+                  quantity: '1',
+                  operator: null,
+                });
+              } catch {
+                // Skip unparseable tokenId
+              }
+            }
+          }
+
+          if (nftInserts.length > 0) {
+            await this.nftTransferRepo
+              .createQueryBuilder()
+              .insert()
+              .into(NftTransferEntity)
+              .values(nftInserts)
+              .orIgnore()
+              .execute();
+
+            // Update ERC-721 ownership
+            const zeroAddr = '0x0000000000000000000000000000000000000000';
+            for (const nft of nftInserts) {
+              if (nft.fromAddress !== zeroAddr) {
+                await this.nftOwnershipRepo.delete({
+                  tokenAddress: nft.tokenAddress!,
+                  tokenId: nft.tokenId!,
+                  ownerAddress: nft.fromAddress!,
+                });
+              }
+              if (nft.toAddress !== zeroAddr) {
+                await this.nftOwnershipRepo.upsert(
+                  {
+                    tokenAddress: nft.tokenAddress!,
+                    tokenId: nft.tokenId!,
+                    ownerAddress: nft.toAddress!,
+                    quantity: '1',
+                    lastTransferBlock: nft.blockNumber!,
+                    updatedAt: new Date(),
+                  },
+                  ['tokenAddress', 'tokenId', 'ownerAddress'],
+                );
+              }
+            }
+          }
+
+          // Decode ERC-1155 transfers inline
+          const erc1155Inserts: Partial<NftTransferEntity>[] = [];
+          for (const log of receipt.logs) {
+            const t0 = log.topics[0]?.toLowerCase() ?? null;
+            const t1 = log.topics[1]?.toLowerCase() ?? null;
+            const t2 = log.topics[2]?.toLowerCase() ?? null;
+            const t3 = log.topics[3]?.toLowerCase() ?? null;
+
+            if (t0 === ERC1155_TRANSFER_SINGLE_TOPIC && t1 && t2 && t3) {
+              try {
+                const decoded = AbiCoder.defaultAbiCoder().decode(
+                  ['uint256', 'uint256'],
+                  log.data,
+                );
+                erc1155Inserts.push({
+                  transactionHash: normalizeHash(log.transactionHash),
+                  blockNumber: String(log.blockNumber),
+                  logIndex: log.logIndex,
+                  tokenAddress: normalizeAddress(log.address),
+                  tokenType: 'ERC1155',
+                  fromAddress: topicToAddress(t2),
+                  toAddress: topicToAddress(t3),
+                  tokenId: decoded[0].toString(),
+                  quantity: decoded[1].toString(),
+                  operator: topicToAddress(t1),
+                });
+              } catch { /* skip */ }
+            }
+
+            if (t0 === ERC1155_TRANSFER_BATCH_TOPIC && t1 && t2 && t3) {
+              try {
+                const decoded = AbiCoder.defaultAbiCoder().decode(
+                  ['uint256[]', 'uint256[]'],
+                  log.data,
+                );
+                const ids: bigint[] = decoded[0];
+                const vals: bigint[] = decoded[1];
+                for (let bi = 0; bi < ids.length; bi++) {
+                  erc1155Inserts.push({
+                    transactionHash: normalizeHash(log.transactionHash),
+                    blockNumber: String(log.blockNumber),
+                    logIndex: log.logIndex * 1000 + bi,
+                    tokenAddress: normalizeAddress(log.address),
+                    tokenType: 'ERC1155',
+                    fromAddress: topicToAddress(t2),
+                    toAddress: topicToAddress(t3),
+                    tokenId: ids[bi].toString(),
+                    quantity: vals[bi].toString(),
+                    operator: topicToAddress(t1),
+                  });
+                }
+              } catch { /* skip */ }
+            }
+          }
+
+          if (erc1155Inserts.length > 0) {
+            await this.nftTransferRepo
+              .createQueryBuilder()
+              .insert()
+              .into(NftTransferEntity)
+              .values(erc1155Inserts)
+              .orIgnore()
+              .execute();
+
+            // Update ERC-1155 balances
+            const zeroAddr = '0x0000000000000000000000000000000000000000';
+            for (const t of erc1155Inserts) {
+              const qty = BigInt(t.quantity!);
+              if (t.fromAddress !== zeroAddr) {
+                const existing = await this.nftOwnershipRepo.findOne({
+                  where: { tokenAddress: t.tokenAddress!, tokenId: t.tokenId!, ownerAddress: t.fromAddress! },
+                });
+                if (existing) {
+                  const newBal = BigInt(existing.quantity) - qty;
+                  if (newBal <= 0n) {
+                    await this.nftOwnershipRepo.delete({
+                      tokenAddress: t.tokenAddress!, tokenId: t.tokenId!, ownerAddress: t.fromAddress!,
+                    });
+                  } else {
+                    await this.nftOwnershipRepo.update(
+                      { tokenAddress: t.tokenAddress!, tokenId: t.tokenId!, ownerAddress: t.fromAddress! },
+                      { quantity: newBal.toString(), lastTransferBlock: t.blockNumber!, updatedAt: new Date() },
+                    );
+                  }
+                }
+              }
+              if (t.toAddress !== zeroAddr) {
+                const existing = await this.nftOwnershipRepo.findOne({
+                  where: { tokenAddress: t.tokenAddress!, tokenId: t.tokenId!, ownerAddress: t.toAddress! },
+                });
+                const newBal = existing ? BigInt(existing.quantity) + qty : qty;
+                await this.nftOwnershipRepo.upsert(
+                  {
+                    tokenAddress: t.tokenAddress!, tokenId: t.tokenId!, ownerAddress: t.toAddress!,
+                    quantity: newBal.toString(), lastTransferBlock: t.blockNumber!, updatedAt: new Date(),
+                  },
+                  ['tokenAddress', 'tokenId', 'ownerAddress'],
+                );
+              }
+            }
           }
         }
       }

@@ -8,6 +8,7 @@ const PARTITIONED_TABLES = [
   'transaction_receipts',
   'logs',
   'token_transfers',
+  'nft_transfers',
 ];
 
 @Injectable()

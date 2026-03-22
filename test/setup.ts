@@ -13,6 +13,9 @@ import { BackfillJobEntity } from '@app/db/entities/backfill-job.entity';
 import { ReorgEventEntity } from '@app/db/entities/reorg-event.entity';
 import { AddressSummaryEntity } from '@app/db/entities/address-summary.entity';
 import { TokenStatsEntity } from '@app/db/entities/token-stats.entity';
+import { NftTransferEntity } from '@app/db/entities/nft-transfer.entity';
+import { NftOwnershipEntity } from '@app/db/entities/nft-ownership.entity';
+import { NftTokenMetadataEntity } from '@app/db/entities/nft-token-metadata.entity';
 import { CHAIN_PROVIDER } from '@app/chain-provider/chain-provider.interface';
 import { QUEUE_NAMES } from '@app/queue/queue.constants';
 import { MetricsService } from '@app/common/metrics/metrics.service';
@@ -30,6 +33,9 @@ export const ALL_ENTITIES = [
   ReorgEventEntity,
   AddressSummaryEntity,
   TokenStatsEntity,
+  NftTransferEntity,
+  NftOwnershipEntity,
+  NftTokenMetadataEntity,
 ];
 
 /**
@@ -105,6 +111,9 @@ export async function clearDatabase(module: TestingModule): Promise<void> {
   await dataSource.query('DELETE FROM "reorg_events"');
   await dataSource.query('DELETE FROM "address_summaries"');
   await dataSource.query('DELETE FROM "token_stats"');
+  await dataSource.query('DELETE FROM "nft_token_metadata"');
+  await dataSource.query('DELETE FROM "nft_ownership_current"');
+  await dataSource.query('DELETE FROM "nft_transfers"');
 }
 
 /**

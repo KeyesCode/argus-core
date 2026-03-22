@@ -11,6 +11,9 @@ import { BackfillJobEntity } from './entities/backfill-job.entity';
 import { ReorgEventEntity } from './entities/reorg-event.entity';
 import { AddressSummaryEntity } from './entities/address-summary.entity';
 import { TokenStatsEntity } from './entities/token-stats.entity';
+import { NftTransferEntity } from './entities/nft-transfer.entity';
+import { NftOwnershipEntity } from './entities/nft-ownership.entity';
+import { NftTokenMetadataEntity } from './entities/nft-token-metadata.entity';
 
 const entities = [
   BlockEntity,
@@ -24,6 +27,9 @@ const entities = [
   ReorgEventEntity,
   AddressSummaryEntity,
   TokenStatsEntity,
+  NftTransferEntity,
+  NftOwnershipEntity,
+  NftTokenMetadataEntity,
 ];
 
 @Global()

@@ -4,4 +4,7 @@ export { ReceiptDto } from './receipt.dto';
 export { LogDto } from './log.dto';
 export { TokenTransferDto } from './token-transfer.dto';
 export { TokenContractDto } from './token-contract.dto';
+export { NftTransferDto } from './nft-transfer.dto';
+export { NftOwnershipDto } from './nft-ownership.dto';
+export { NftTokenMetadataDto } from './nft-token-metadata.dto';
 export { PaginatedDto, ApiPaginatedResponse } from './paginated.dto';

@@ -16,3 +16,12 @@ export const ERC1155_TRANSFER_SINGLE_TOPIC =
 // keccak256("TransferBatch(address,address,address,uint256[],uint256[])")
 export const ERC1155_TRANSFER_BATCH_TOPIC =
   '0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb';
+
+// keccak256("URI(string,uint256)")
+export const ERC1155_URI_TOPIC =
+  '0x6bb7ff708619ba0610cba295a58592e0451dee2622938c8755667688daf3529b';
+
+// ERC-165 interface IDs
+export const ERC721_INTERFACE_ID = '0x80ac58cd';
+export const ERC1155_INTERFACE_ID = '0xd9b67a26';
+export const ERC165_INTERFACE_ID = '0x01ffc9a7';

@@ -4,7 +4,11 @@ import { TransactionDto } from '@app/chain-provider/dto/transaction.dto';
 import { TransactionReceiptDto } from '@app/chain-provider/dto/transaction-receipt.dto';
 import { LogDto } from '@app/chain-provider/dto/log.dto';
 import { GetLogsDto } from '@app/chain-provider/dto/get-logs.dto';
-import { ERC20_TRANSFER_TOPIC } from '@app/abi';
+import {
+  ERC20_TRANSFER_TOPIC,
+  ERC1155_TRANSFER_SINGLE_TOPIC,
+} from '@app/abi';
+import { AbiCoder } from 'ethers';
 
 /**
  * A test chain provider that generates deterministic, realistic blockchain data.
@@ -206,13 +210,58 @@ export class TestChainProvider implements ChainProvider {
       });
     }
 
+    // ERC-721 Transfer log on blocks divisible by 3, tx index 0
+    const hasNftTransfer = blockNumber % 3 === 0 && tx.transactionIndex === 0;
+    if (hasNftTransfer) {
+      const nftAddress = '0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d'; // BAYC-like
+      const fromPaddedNft = `0x000000000000000000000000${tx.from.slice(2)}`;
+      const toPaddedNft = `0x000000000000000000000000${tx.to!.slice(2)}`;
+      const tokenIdHex = `0x${blockNumber.toString(16).padStart(64, '0')}`; // tokenId = blockNumber
+
+      logs.push({
+        address: nftAddress,
+        blockNumber,
+        transactionHash: tx.hash,
+        transactionIndex: tx.transactionIndex,
+        logIndex: logs.length,
+        data: '0x', // ERC-721 Transfer has no data (tokenId is indexed as topic3)
+        topics: [ERC20_TRANSFER_TOPIC, fromPaddedNft, toPaddedNft, tokenIdHex],
+        removed: false,
+      });
+    }
+
+    // ERC-1155 TransferSingle log on blocks divisible by 5, tx index 0
+    const has1155Transfer = blockNumber % 5 === 0 && tx.transactionIndex === 0;
+    if (has1155Transfer) {
+      const erc1155Address = '0x76be3b62873462d2142405439777e971754e8e77'; // 1155-like
+      const operatorPadded = `0x000000000000000000000000${tx.from.slice(2)}`;
+      const fromPadded1155 = `0x000000000000000000000000${tx.from.slice(2)}`;
+      const toPadded1155 = `0x000000000000000000000000${tx.to!.slice(2)}`;
+      // ABI-encode (tokenId, amount) as data
+      const data1155 = AbiCoder.defaultAbiCoder().encode(
+        ['uint256', 'uint256'],
+        [BigInt(blockNumber * 100), BigInt(10)], // tokenId = blockNumber*100, qty = 10
+      );
+
+      logs.push({
+        address: erc1155Address,
+        blockNumber,
+        transactionHash: tx.hash,
+        transactionIndex: tx.transactionIndex,
+        logIndex: logs.length,
+        data: data1155,
+        topics: [ERC1155_TRANSFER_SINGLE_TOPIC, operatorPadded, fromPadded1155, toPadded1155],
+        removed: false,
+      });
+    }
+
     // Always add a non-transfer log too (e.g. an Approval)
     logs.push({
       address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
       blockNumber,
       transactionHash: tx.hash,
       transactionIndex: tx.transactionIndex,
-      logIndex: hasTransfer ? 1 : 0,
+      logIndex: logs.length,
       data: '0x0000000000000000000000000000000000000000000000000000000000000001',
       topics: [
         '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925',

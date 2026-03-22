@@ -5,6 +5,8 @@ import { ChainProvider, CHAIN_PROVIDER } from '@app/chain-provider';
 import { BlockEntity } from '@app/db/entities/block.entity';
 import { LogEntity } from '@app/db/entities/log.entity';
 import { TokenTransferEntity } from '@app/db/entities/token-transfer.entity';
+import { NftTransferEntity } from '@app/db/entities/nft-transfer.entity';
+import { NftOwnershipEntity } from '@app/db/entities/nft-ownership.entity';
 import { SyncCheckpointEntity } from '@app/db/entities/sync-checkpoint.entity';
 import { ReorgEventEntity } from '@app/db/entities/reorg-event.entity';
 import { MetricsService, normalizeHash } from '@app/common';
@@ -34,6 +36,12 @@ export class ReorgDetectionService {
 
     @InjectRepository(TokenTransferEntity)
     private readonly transferRepo: Repository<TokenTransferEntity>,
+
+    @InjectRepository(NftTransferEntity)
+    private readonly nftTransferRepo: Repository<NftTransferEntity>,
+
+    @InjectRepository(NftOwnershipEntity)
+    private readonly nftOwnershipRepo: Repository<NftOwnershipEntity>,
 
     @InjectRepository(SyncCheckpointEntity)
     private readonly checkpointRepo: Repository<SyncCheckpointEntity>,
@@ -163,6 +171,21 @@ export class ReorgDetectionService {
 
     // Delete orphaned token_transfers
     await this.transferRepo
+      .createQueryBuilder()
+      .delete()
+      .where('"block_number" >= :from', { from: String(rollbackFrom) })
+      .execute();
+
+    // Delete orphaned nft_transfers and recompute ownership
+    // First, delete ownership rows that were last updated in rolled-back blocks
+    await this.nftOwnershipRepo
+      .createQueryBuilder()
+      .delete()
+      .where('"last_transfer_block" >= :from', { from: String(rollbackFrom) })
+      .execute();
+
+    // Delete nft_transfers for rolled-back blocks
+    await this.nftTransferRepo
       .createQueryBuilder()
       .delete()
       .where('"block_number" >= :from', { from: String(rollbackFrom) })

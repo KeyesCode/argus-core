@@ -7,6 +7,7 @@ import { AddressesModule } from './addresses/addresses.module';
 import { TokensModule } from './tokens/tokens.module';
 import { SearchModule } from './search/search.module';
 import { AdminModule } from './admin/admin.module';
+import { NftsModule } from './nfts/nfts.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdminModule } from './admin/admin.module';
     TokensModule,
     SearchModule,
     AdminModule,
+    NftsModule,
   ],
 })
 export class AppModule {}

@@ -10,3 +10,6 @@ export * from './entities/backfill-job.entity';
 export * from './entities/reorg-event.entity';
 export * from './entities/address-summary.entity';
 export * from './entities/token-stats.entity';
+export * from './entities/nft-transfer.entity';
+export * from './entities/nft-ownership.entity';
+export * from './entities/nft-token-metadata.entity';
