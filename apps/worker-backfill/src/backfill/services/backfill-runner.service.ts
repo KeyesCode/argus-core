@@ -565,7 +565,7 @@ export class BackfillRunnerService {
           if (sv3 !== UNISWAP_V3_SWAP_TOPIC) continue;
           if (!log.topics[1] || !log.topics[2]) continue;
 
-          const pool = await this.getPairInfo(normalizeAddress(log.address), blockNumber);
+          const pool = await this.getPairInfo(normalizeAddress(log.address), blockNumber, 'UNISWAP_V3');
           if (!pool) continue;
 
           try {
@@ -612,6 +612,7 @@ export class BackfillRunnerService {
   private async getPairInfo(
     pairAddress: string,
     blockNumber: number,
+    protocolName = 'UNISWAP_V2',
   ): Promise<{ token0: string; token1: string } | null> {
     const cached = this.pairCache.get(pairAddress);
     if (cached) return cached;
@@ -642,12 +643,12 @@ export class BackfillRunnerService {
       try { factory = ((await contract.factory()) as string).toLowerCase(); } catch {}
 
       await this.pairRepo.upsert({
-        pairAddress, protocolName: 'UNISWAP_V2', factoryAddress: factory,
+        pairAddress, protocolName, factoryAddress: factory,
         token0Address: t0, token1Address: t1, discoveredAtBlock: String(blockNumber),
       }, ['pairAddress']);
 
       await this.protocolContractRepo.upsert({
-        address: pairAddress, protocolName: 'UNISWAP_V2', contractType: 'PAIR',
+        address: pairAddress, protocolName, contractType: protocolName === 'UNISWAP_V3' ? 'POOL' : 'PAIR',
         metadataJson: { token0: t0, token1: t1, factory } as any,
         discoveredAtBlock: String(blockNumber),
       }, ['address']);
