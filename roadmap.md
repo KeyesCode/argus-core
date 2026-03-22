@@ -1,10 +1,6 @@
-# ROADMAP.md
+# Roadmap
 
-## 📌 Project: Blockchain Indexer
-
----
-
-## 🧭 Vision
+## Vision
 
 Build a reusable, production-grade blockchain indexing platform that provides:
 
@@ -12,45 +8,36 @@ Build a reusable, production-grade blockchain indexing platform that provides:
 - Derived protocol-level insights (modular & extensible)
 - High-performance APIs for downstream applications
 
-This repo is NOT an intelligence system (Argus).  
+This repo is NOT an intelligence system (Argus).
 This is the data foundation layer.
 
 ---
 
-## 🧱 Architecture Overview
+## Architecture
 
 ### Core Principle
 
 Separate:
 
-- Truth Layer (Core Indexer) → raw, canonical blockchain data
-- Derived Layer (Protocol Modules) → decoded, interpretable events
+- **Truth Layer** (Core Indexer) — raw, canonical blockchain data
+- **Derived Layer** (Protocol Modules) — decoded, interpretable events
 
----
+### System Layers
 
-## 🏗️ System Layers
-
-### 1. Core Indexer Layer (Always Present)
-
-Responsible for:
-
+**1. Core Indexer Layer (Always Present)**
 - Block ingestion
 - Transactions & receipts
 - Logs
 - ERC-20 transfers
 - ERC-721 ownership
 - ERC-1155 balances
+- NFT metadata pipeline
 - Data integrity & reconciliation
-- Read models
-- Public API
+- Read models (holdings, stats, summaries)
+- Public API with Swagger docs
 
----
-
-### 2. Protocol Decoder Layer (Modular & Pluggable)
-
-Responsible for:
-
-- DEX swaps
+**2. Protocol Decoder Layer (Modular & Pluggable)**
+- DEX swaps (Uniswap V2 implemented)
 - Lending activity
 - NFT marketplace events
 - Bridges / cross-chain
@@ -59,282 +46,218 @@ Responsible for:
 
 ---
 
-## 🔑 Design Principles
+## Design Principles
 
-### 1. Truth vs Derived Data
-
-Primary Truth (Immutable / Canonical):
-
-- Blocks
-- Transactions
-- Logs
-- Token transfers
-
-Derived Data (Rebuildable):
-
-- Swaps
-- Lending events
-- NFT sales
-- Bridge activity
-
-Protocol data must ALWAYS be:
-
-- Rebuildable
-- Reorg-safe
-- Decoupled from ingestion
+1. **Truth vs Derived** — protocol data is always rebuildable, reorg-safe, and decoupled from ingestion
+2. **Modularity** — each protocol is an isolated module implementing `ProtocolDecoder` interface
+3. **Replayability** — backfills, reorg handling, and full rebuilds supported
+4. **Performance First** — partition large tables, composite indexes, cursor pagination, read models
 
 ---
 
-### 2. Modularity
+## Phase 1 — Foundation
 
-- Protocol logic must NOT live in core ingestion
-- Each protocol = isolated module
-- No tight coupling between protocols
-
----
-
-### 3. Replayability
-
-The system must support:
-
-- Backfills
-- Reorg handling
-- Full rebuilds
-
----
-
-### 4. Performance First
-
-- Partition large tables early
-- Optimize queries continuously
-- Avoid unnecessary joins in APIs
-
----
-
-## 📁 Suggested Project Structure
-
-apps/
-api/
-worker-ingest/
-worker-decode/
-worker-backfill/
-
-libs/
-db/
-shared/
-chain/
-erc20/
-nft/
-protocols/
-common/
-uniswap-v2/
-uniswap-v3/
-aave/
-
----
-
-## ⚙️ Core System Roadmap
-
----
-
-### Phase 1 — Foundation (CURRENT)
-
-Status: In Progress / Near Completion
-
-Goals:
-
-- Reliable ingestion pipeline
-- Data correctness
-- Idempotency
-- Partitioning strategy
-
-Work Items:
+**Status: COMPLETE**
 
 - [x] Block ingestion pipeline
 - [x] Transactions + receipts
 - [x] Logs ingestion
 - [x] ERC-20 transfer decoding
-- [x] ERC-721 ownership model (erc721_ownership)
-- [x] ERC-1155 balances (erc1155_balances)
-- [x] Backfill system with checkpoints
-- [x] Idempotent processing
-- [x] Partitioned tables (block_number range)
-- [x] Partition manager service
-
-Remaining:
-
-- [ ] Query performance optimization (EXPLAIN ANALYZE)
-- [ ] Composite indexes:
-  - (from_address, block_number DESC)
-  - (to_address, block_number DESC)
-  - (token_address, block_number DESC)
-- [ ] Read model optimization
-
----
-
-### Phase 2 — Protocol Framework (NEXT)
-
-Goals:
-
-- Introduce protocol decoding layer
-- Keep core indexer clean
-- Enable extensibility
-
-Work Items:
-
-- [ ] Create ProtocolDecoder interface
-
-interface ProtocolDecoder {
-protocol: string;
-canHandle(logsOrTx: unknown): Promise<boolean>;
-decodeBlock(blockNumber: number): Promise<void>;
-reconcile?(fromBlock?: number, toBlock?: number): Promise<void>;
-}
-
-- [ ] Build protocol registry system:
-  - protocol name
-  - contract addresses
-  - contract type
-  - chain id
-
-- [ ] Create protocol worker (worker-decode)
-- [ ] Add protocol event tables:
-  - dex_swaps
-  - lending_events
-  - nft_sales
-- [ ] Implement replay/rebuild support
+- [x] Token metadata discovery (name, symbol, decimals via RPC)
+- [x] Checkpoint-based resumable sync
+- [x] Confirmation depth (default 6 blocks)
+- [x] Idempotent processing (INSERT ON CONFLICT DO NOTHING)
+- [x] Backfill system with pause/resume/progress tracking
+- [x] Reorg detection (parent hash validation) + rollback + audit trail
+- [x] Partitioned tables (transactions, receipts, logs, token_transfers, nft_transfers)
+- [x] Partition manager service (auto-creates partitions ahead of sync)
+- [x] Composite indexes for address lookups (from_address, to_address + block_number DESC)
+- [x] Read models: address_summaries, token_stats
+- [x] MetricsService (counters, gauges, rate tracking, error recording)
+- [x] Admin status/metrics/checkpoints/reorgs endpoints
+- [x] Search endpoint (tx hash, block number/hash, address)
+- [x] Response DTOs with Swagger decorators
+- [x] Validation pipes (class-validator/class-transformer)
+- [x] Feature-based NestJS module organization
+- [x] 87 integration + unit tests
 
 ---
 
-### Phase 3 — Tier 1 Protocols (HIGH ROI)
+## Phase 2 — NFT Support
 
-Goals:
-Cover ~80–90% of real-world use cases
+**Status: COMPLETE**
+
+### ERC-721
+- [x] Transfer decoding (4-topic Transfer logs)
+- [x] Contract standard detection (ERC-165 supportsInterface probing)
+- [x] Contract standard persistence (contract_standards table)
+- [x] erc721_ownership table — PK (token_address, token_id), exactly one owner
+- [x] Ownership updates: mint/transfer/burn
+- [x] Reorg-safe rollback of ownership
+
+### ERC-1155
+- [x] TransferSingle decoding (ABI decode from data field)
+- [x] TransferBatch decoding (expand arrays into individual rows)
+- [x] erc1155_balances table — PK (token_address, token_id, owner_address)
+- [x] Balance tracking: increment/decrement with quantity
+- [x] Burn: delete row when balance reaches 0
+
+### NFT Metadata
+- [x] nft_token_metadata table with fetch status (PENDING/FETCHING/SUCCESS/FAILED/RETRYABLE)
+- [x] NftMetadataService — tokenURI fetch, IPFS/Arweave/data URI normalization
+- [x] Queue-backed metadata worker (Bull NFT_METADATA queue)
+- [x] Fire-and-forget from decoder — never blocks ingestion
+
+### NFT Read Models
+- [x] address_nft_holdings — fast lookup of NFTs held by address
+- [x] nft_contract_stats — collection-level transfer counts, holder counts
+- [x] Incremental updates during decode/backfill
+- [x] Cursor pagination on all NFT transfer history endpoints
+
+### NFT Reconciliation
+- [x] NftReconciliationService — validate + rebuild all derived tables
+- [x] Rebuild order: nft_transfers → ownership/balances → holdings → stats
+- [x] Admin endpoints: POST /admin/nfts/reconcile, GET /admin/nfts/validate
+- [x] Drift detection: ownership mismatches, holdings gaps, stats errors
+- [x] dryRun mode for validation without mutation
+
+### NFT API
+- [x] GET /nfts/collections/:address/transfers (cursor paginated)
+- [x] GET /nfts/collections/:address/tokens/:tokenId (metadata + owners)
+- [x] GET /nfts/collections/:address/tokens/:tokenId/transfers
+- [x] GET /nfts/collections/:address/tokens/:tokenId/owners
+- [x] GET /addresses/:address/nfts (from holdings read model)
+- [x] GET /addresses/:address/nft-transfers (cursor paginated)
 
 ---
 
-Uniswap V2:
+## Phase 3 — Protocol Decoder Framework
 
-- [ ] Pair detection
-- [ ] Swap decoding
-- [ ] Mint / Burn events
-- [ ] Normalize trades
+**Status: COMPLETE**
 
----
+- [x] ProtocolDecoder interface (decodeBlock, rollbackFrom, rebuild)
+- [x] ProtocolRegistryService (register, decodeBlock, rollbackFrom)
+- [x] Self-registration via onModuleInit
+- [x] protocol_contracts table (cross-protocol contract registry)
+- [x] dex_pairs table (pair metadata: token0, token1, factory)
+- [x] dex_swaps table (normalized swap events)
+- [x] Integrated into decode worker queue processor
+- [x] Integrated into backfill runner (inline decode)
+- [x] Reorg rollback for protocol-derived tables
+- [x] Protocol API: GET /protocols/dex/swaps, /pairs, /addresses/:address/dex-swaps
 
-ERC-20 Approvals:
-
-- [ ] Approval event decoding
-- [ ] Allowance tracking
-
-Enables:
-
-- Wallet security insights
-- Token permission tracking
-
----
-
-Uniswap V3:
-
-- [ ] Swap decoding
-- [ ] Liquidity positions
-- [ ] Fee collection
+### Uniswap V2
+- [x] Swap event decoding (topic0 = 0xd78ad95f...)
+- [x] Pair detection: memory cache → DB → RPC probe (token0/token1/factory)
+- [x] Persistence in dex_swaps + dex_pairs + protocol_contracts
+- [x] Idempotent (orIgnore on unique tx_hash + log_index)
+- [ ] Mint / Burn (LP) events
+- [ ] Sync event for reserve tracking
 
 ---
 
-NFT Marketplaces (Seaport / Blur):
+## Phase 4 — Tier 1 Protocols (NEXT)
 
+### ERC-20 Approvals
+- [ ] Approval(address indexed owner, address indexed spender, uint256 value) decoding
+- [ ] Approval tracking table
+- [ ] Current allowance state table
+
+### Uniswap V3
+- [ ] Swap(address,address,int256,int256,uint160,uint128,int24) decoding
+- [ ] Pool detection via factory
+- [ ] Reuse dex_swaps with protocol_name = UNISWAP_V3
+- [ ] Liquidity position tracking (optional)
+
+### NFT Marketplaces (Seaport / Blur)
 - [ ] Order fulfillment decoding
-- [ ] Sale normalization
+- [ ] Sale normalization (nft_sales table)
+- [ ] Price extraction
 
 ---
 
-### Phase 4 — Tier 2 Protocols
+## Phase 5 — Tier 2 Protocols
 
-Lending:
-
-Aave:
-
+### Lending: Aave
 - [ ] Deposit / Withdraw
 - [ ] Borrow / Repay
 - [ ] Liquidations
 
-Compound:
-
+### Lending: Compound
 - [ ] Mint / Redeem
 - [ ] Borrow / Repay
 
----
-
-ERC-4626 Vaults:
-
+### ERC-4626 Vaults
 - [ ] Deposit / Withdraw
 
----
-
-Bridges:
-
+### Bridges
 - [ ] LayerZero
 - [ ] Hop
 - [ ] Stargate
 - [ ] Native L2 bridges
 
-Enables:
-
-- Cross-chain tracking
-- Flow analytics
-
 ---
 
-### Phase 5 — Advanced Protocols
+## Phase 6 — Advanced Protocols
 
-Curve:
-
+### Curve
 - [ ] Swaps
 - [ ] Liquidity events
 
-Balancer:
-
+### Balancer
 - [ ] Multi-token pool support
 
-GMX (Perps):
-
+### GMX (Perps)
 - [ ] Position lifecycle
 - [ ] Liquidations
 
-ENS:
-
+### ENS
 - [ ] Name registration
 - [ ] Transfers
 
 ---
 
-### Phase 6 — Meta / Infrastructure Protocols
+## Phase 7 — Meta / Infrastructure
 
-Aggregators:
-
+### Aggregators
 - [ ] 1inch
 - [ ] 0x
 - [ ] Paraswap
-
 Note: Requires multi-call reconstruction
 
----
-
-Safe (Gnosis Safe):
-
+### Safe (Gnosis Safe)
 - [ ] Transaction execution
 - [ ] Module interactions
 
----
-
-ERC-4337:
-
+### ERC-4337
 - [ ] UserOperation decoding
 
 ---
 
-## ⚠️ Out of Scope (Handled by Argus)
+## Future Infrastructure
+
+### Multi-chain support
+- [ ] Chain-aware entity design (chain_id column or separate schemas)
+- [ ] Multiple chain provider instances
+- [ ] Per-chain workers and checkpoints
+
+### Internal transactions / traces
+- [ ] debug_traceBlockByNumber or trace_block
+- [ ] internal_transactions table
+- [ ] Requires archive node
+
+### Contract verification
+- [ ] Store verified contract ABIs
+- [ ] Auto-decode all events for verified contracts
+
+### Frontend explorer
+- [ ] Next.js frontend
+- [ ] Block, transaction, address, token, NFT pages
+- [ ] Real-time updates via WebSocket
+
+---
+
+## Out of Scope (Handled by Argus)
 
 Do NOT include:
 
@@ -347,68 +270,23 @@ Do NOT include:
 
 ---
 
-## 🔥 Implementation Strategy
+## Implementation Priority
 
-Start with event-driven protocols:
-
-Easy:
-
-- Uniswap V2
-- ERC-4626
-- Compound
-
-Medium:
-
-- Uniswap V3
-- Seaport
-- Aave
-
-Hard:
-
-- Aggregators
-- Router-based swaps
+| Difficulty | Protocols |
+|---|---|
+| Easy | ERC-20 Approvals, ERC-4626 |
+| Medium | Uniswap V3, Seaport, Aave |
+| Hard | Aggregators, Router-based swaps |
 
 ---
 
-## 📈 Performance & Scaling Strategy
+## Execution Order
 
-- Partition by block_number
-- Pre-create partitions
-- Use composite indexes
-- Avoid full-table scans
-- Optimize read models
-- Minimize joins in hot paths
-
----
-
-## 🏁 Final Execution Order
-
-1. Core stability (polish Phase 1)
-2. Protocol framework
-3. Uniswap V2 + Approvals
-4. Uniswap V3
+1. ~~Core stability (Phase 1)~~ DONE
+2. ~~NFT support (Phase 2)~~ DONE
+3. ~~Protocol framework + Uniswap V2 (Phase 3)~~ DONE
+4. **ERC-20 Approvals + Uniswap V3** ← NEXT
 5. NFT marketplaces
-6. Lending
+6. Lending protocols
 7. Bridges
 8. Advanced protocols
-
----
-
-## 🧠 Final Summary
-
-Build:
-
-Core Indexer + Modular Protocol Decoders
-
-NOT:
-
-Monolithic Intelligence System
-
----
-
-This ensures:
-
-- Reusability across projects
-- Clean architecture
-- Scalable performance
-- Future-proof extensibility
