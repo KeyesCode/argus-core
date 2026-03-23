@@ -4,6 +4,8 @@ A self-hosted blockchain indexing platform that syncs Ethereum chain data into P
 
 Start with a hosted RPC (Alchemy, Infura) today and swap to your own node later by changing one environment variable.
 
+![Argus Explorer](docs/explorer-home.png)
+
 ## Architecture
 
 ```
