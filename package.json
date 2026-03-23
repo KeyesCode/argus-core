@@ -1,5 +1,5 @@
 {
-  "name": "blockchain-indexer",
+  "name": "argus-engine",
   "version": "0.0.1",
   "description": "Blockchain indexer and explorer platform",
   "private": true,

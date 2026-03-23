@@ -1,4 +1,4 @@
-# Argus-Core
+# Argus-Engine
 
 A self-hosted blockchain indexing platform that syncs Ethereum chain data into Postgres and serves it through a REST API. Decodes ERC-20, ERC-721, and ERC-1155 token events. Built to own your data layer instead of paying per-query API costs.
 
@@ -208,7 +208,7 @@ All derived tables are rebuildable from source-of-truth via `POST /admin/nfts/re
 ## Project Structure
 
 ```
-blockchain-indexer/
+argus-engine/
 ├── apps/
 │   ├── api/                        # REST API server
 │   │   └── src/
